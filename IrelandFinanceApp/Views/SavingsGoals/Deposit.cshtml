@@ -1,0 +1,55 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Guardar Dinheiro" : "Deposit into Goal";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+<div class="container py-4" style="max-width: 500px;">
+    <div class="card border-0 shadow-sm p-4 bg-white">
+        <div class="text-center mb-4">
+            <div class="p-3 bg-success-subtle text-success rounded-circle d-inline-flex mb-2">
+                <i class="bi bi-piggy-bank fs-2"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-1">
+                @(isPt ? "Aporte Financeiro" : "Make a Deposit")
+            </h4>
+            <p class="text-muted small mb-0">
+                @(isPt ? "Destinar fundos para:" : "Contributing towards:") 
+                <span class="fw-bold text-dark">@ViewBag.GoalTitle</span>
+            </p>
+        </div>
+
+        <form asp-action="Deposit" asp-route-id="@ViewBag.GoalId" method="post">
+            <div class="mb-3">
+                <label class="form-label fw-semibold text-dark">
+                    @(isPt ? "Valor do Aporte" : "Deposit Amount")
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text">@currencySymbol</span>
+                    <input type="number" step="0.01" min="0.01" name="amount" class="form-control form-control-lg" placeholder="100.00" required autofocus />
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold text-dark">
+                    @(isPt ? "Observação (Opcional)" : "Note / Description (Optional)")
+                </label>
+                <input type="text" name="note" class="form-control" placeholder="@(isPt ? "Ex: Sobra do salário, Bônus..." : "e.g. Monthly surplus, Bonus...")" />
+            </div>
+
+            <div class="d-flex justify-content-between pt-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    @(isPt ? "Cancelar" : "Cancel")
+                </a>
+                <button type="submit" class="btn btn-emerald px-4">
+                    @(isPt ? "Confirmar Depósito" : "Confirm Deposit")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

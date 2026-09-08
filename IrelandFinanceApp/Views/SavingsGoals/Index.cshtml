@@ -1,0 +1,127 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IEnumerable<IrelandFinanceApp.Models.SavingsGoal>
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Metas & Reserva" : "Savings & Goals";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">
+            @(isPt ? "Metas & Reserva de Emergência" : "Savings & Goals")
+        </h3>
+        <p class="text-muted small mb-0">
+            @(isPt ? "Acompanhe o crescimento do seu colchão financeiro e objetivos futuros." : "Track your safety net and long-term targets.")
+        </p>
+    </div>
+    <a asp-action="Create" class="btn btn-emerald px-3">
+        <i class="bi bi-plus-lg me-1"></i> @(isPt ? "Nova Meta" : "New Goal")
+    </a>
+</div>
+
+<div class="row g-4">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="card border-0 shadow-sm p-5 text-center bg-white">
+                <i class="bi bi-shield-check fs-1 text-secondary mb-3 d-block"></i>
+                <h5 class="fw-semibold text-dark">
+                    @(isPt ? "Nenhuma meta definida" : "No goals defined yet")
+                </h5>
+                <p class="text-muted small mb-4">
+                    @(isPt ? "Crie sua Reserva de Emergência para calcular seus meses de tranquilidade financeira." : "Create an emergency fund or savings target to start tracking progress.")
+                </p>
+                <div>
+                    <a asp-action="Create" class="btn btn-emerald">
+                        <i class="bi bi-plus-lg me-1"></i> @(isPt ? "Criar Minha Primeira Meta" : "Create My First Goal")
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+
+    @foreach (var goal in Model)
+    {
+        var pct = goal.ProgressPercentage.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+        var remainingAmount = goal.TargetAmount - goal.CurrentAmount;
+        var displayRemaining = remainingAmount > 0 ? remainingAmount : 0m;
+
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card border-0 shadow-sm p-4 bg-white h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold text-dark mb-0 text-truncate me-2" title="@goal.Title">
+                            @goal.Title
+                        </h5>
+                        <form asp-action="Delete" asp-route-id="@goal.Id" method="post" onsubmit="return confirm('@(isPt ? "Deseja excluir esta meta?" : "Delete this goal?")');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1" title="@(isPt ? "Excluir" : "Delete")">
+                                <i class="bi bi-trash3-fill"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="d-flex align-items-baseline gap-2 mb-3">
+                        <h4 class="fw-bold text-success mb-0">@currencySymbol @goal.CurrentAmount.ToString("N2")</h4>
+                        <span class="text-muted small">/ @currencySymbol @goal.TargetAmount.ToString("N2")</span>
+                    </div>
+
+                    <div class="progress mb-2" style="height: 10px; background-color: #e2e8f0;">
+                        <div class="progress-bar bg-success rounded-pill" 
+                             role="progressbar" 
+                             style="width: @(pct)%;" 
+                             aria-valuenow="@pct" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between small text-muted mb-3">
+                        <span>@goal.ProgressPercentage% @(isPt ? "concluído" : "achieved")</span>
+                        <span>@(isPt ? "Faltam" : "Left"): @currencySymbol @displayRemaining.ToString("N2")</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-top d-flex align-items-center justify-content-between gap-2">
+                    <span class="text-muted small text-truncate">
+                        @if (goal.TargetDate.HasValue)
+                        {
+                            <i class="bi bi-calendar-event me-1"></i>
+                            <span>@goal.TargetDate.Value.ToString("dd/MM/yyyy")</span>
+                        }
+                    </span>
+
+                    <div class="d-flex gap-2">
+                        <!-- Botão de Resgate (Withdraw) -->
+                        @if (goal.CurrentAmount > 0)
+                        {
+                            <a asp-action="Withdraw" asp-route-id="@goal.Id" class="btn btn-sm btn-outline-secondary fw-semibold d-inline-flex align-items-center gap-1 shadow-sm" title="@(isPt ? "Resgatar valor" : "Withdraw funds")">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                                <span>@(isPt ? "Resgatar" : "Withdraw")</span>
+                            </a>
+                        }
+
+                        <!-- Botão de Aporte (Deposit) -->
+                        <a asp-action="Deposit" asp-route-id="@goal.Id" class="btn btn-sm btn-outline-success fw-semibold d-inline-flex align-items-center gap-1 shadow-sm">
+                            <i class="bi bi-plus-circle"></i>
+                            <span>@(isPt ? "Depositar" : "Deposit")</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

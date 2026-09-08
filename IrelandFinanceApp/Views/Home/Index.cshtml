@@ -1,0 +1,328 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IrelandFinanceApp.Models.ViewModels.DashboardViewModel
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Painel Geral" : "Financial Dashboard";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+
+    var prevMonth = Model.SelectedDate.AddMonths(-1);
+    var nextMonth = Model.SelectedDate.AddMonths(1);
+    var currentPeriodValue = $"{Model.SelectedYear}-{Model.SelectedMonth:D2}";
+}
+
+<!-- Top Header e Seleção de Mês -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="fw-bold mb-1 text-dark">@(isPt ? "Painel Financeiro" : "Financial Dashboard")</h3>
+        <p class="text-muted small mb-0">@(isPt ? "Relatório analítico de fluxo de caixa, orçamento e reserva." : "Analytics on cashflow, burn rate, and capital runway.")</p>
+    </div>
+
+    <!-- Navegação de Data -->
+    <div class="d-flex align-items-center gap-2 bg-white p-2 rounded-3 shadow-sm border">
+        <a asp-action="Index" asp-route-month="@prevMonth.Month" asp-route-year="@prevMonth.Year" class="btn btn-sm btn-outline-secondary px-2">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <span class="fw-bold px-2 text-dark text-capitalize">
+            @Model.SelectedDate.ToString("MMMM yyyy", System.Globalization.CultureInfo.CurrentUICulture)
+        </span>
+        <a asp-action="Index" asp-route-month="@nextMonth.Month" asp-route-year="@nextMonth.Year" class="btn btn-sm btn-outline-secondary px-2">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        <input type="month" class="form-control form-control-sm border-0 bg-light" style="width: 140px;" value="@currentPeriodValue" onchange="navigateToMonth(this.value)" />
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-controller="Transactions" asp-action="Create" class="btn btn-emerald px-3">
+            <i class="bi bi-plus-lg me-1"></i> @(isPt ? "Novo Lançamento" : "New Transaction")
+        </a>
+    </div>
+</div>
+
+<!-- KPIs Principais -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-3">
+        <div class="card border-0 shadow-sm p-3 bg-white h-100">
+            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Entradas" : "Income")</span>
+            <h4 class="fw-bold text-success mt-1 mb-0">@currencySymbol @Model.MonthlyIncome.ToString("N2")</h4>
+            <span class="text-muted small mt-1">@(isPt ? "Total recebido no mês" : "Total received this month")</span>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-0 shadow-sm p-3 bg-white h-100">
+            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Despesas" : "Expenses")</span>
+            <h4 class="fw-bold text-danger mt-1 mb-0">@currencySymbol @Model.MonthlyExpenses.ToString("N2")</h4>
+            <span class="text-muted small mt-1">@(isPt ? "Total gasto no mês" : "Total outgoing spend")</span>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-0 shadow-sm p-3 bg-white h-100">
+            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Saldo Livre" : "Net Balance")</span>
+            <h4 class="fw-bold @(Model.MonthlyBalance >= 0 ? "text-primary" : "text-danger") mt-1 mb-0">
+                @currencySymbol @Model.MonthlyBalance.ToString("N2")
+            </h4>
+            <span class="text-muted small mt-1">
+                @(isPt ? "Taxa de Poupança:" : "Savings Rate:") <strong class="text-dark">@Model.SavingsRate%</strong>
+            </span>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card border-0 shadow-sm p-3 bg-white h-100">
+            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Média Diária (Burn Rate)" : "Daily Burn Rate")</span>
+            <h4 class="fw-bold text-dark mt-1 mb-0">@currencySymbol @Model.DailyBurnRate.ToString("N2")<span class="fs-6 fw-normal text-muted">/dia</span></h4>
+            <span class="text-muted small mt-1">
+                @(isPt ? "Projeção Mês:" : "Projected Month:") @currencySymbol @Model.ProjectedEndOfMonthExpense.ToString("N0")
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de Inteligência Financeira -->
+<div class="row g-4 mb-4">
+    <!-- Gráfico 1: Evolução Histórica (6 Meses) -->
+    <div class="col-12 col-xl-8">
+        <div class="card border-0 shadow-sm p-4 bg-white h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">@(isPt ? "Histórico de Fluxo de Caixa" : "Cashflow Trend (Last 6 Months)")</h5>
+                    <span class="text-muted small">@(isPt ? "Comparativo de Receitas vs Despesas" : "Income vs Expense trajectory")</span>
+                </div>
+            </div>
+            <div style="height: 280px; position: relative;">
+                <canvas id="cashflowTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico 2: Despesas por Categoria (Doughnut) -->
+    <div class="col-12 col-xl-4">
+        <div class="card border-0 shadow-sm p-4 bg-white h-100">
+            <h5 class="fw-bold text-dark mb-0">@(isPt ? "Distribuição de Gastos" : "Expense Breakdown")</h5>
+            <span class="text-muted small mb-3">@(isPt ? "Alocação do mês atual" : "Current month breakdown")</span>
+
+            @if (!Model.ExpensesByCategory.Any())
+            {
+                <div class="text-center py-5 text-muted my-auto">
+                    <i class="bi bi-pie-chart text-secondary fs-1 d-block mb-2"></i>
+                    @(isPt ? "Nenhum gasto registrado neste mês." : "No expenses recorded this month.")
+                </div>
+            }
+            else
+            {
+                <div style="height: 250px; position: relative;">
+                    <canvas id="expenseCategoryChart"></canvas>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Runway & Últimos Lançamentos -->
+<div class="row g-4">
+    <!-- Colchão Financeiro / Runway -->
+    <div class="col-12 col-lg-5">
+        <div class="card border-0 shadow-sm p-4 bg-white h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-dark mb-0">@(isPt ? "Colchão & Runway" : "Capital Runway")</h5>
+                <span class="badge bg-emerald text-white px-3 py-2 rounded-pill">
+                    @Model.MonthsCovered @(isPt ? "Meses Seguros" : "Months Safe")
+                </span>
+            </div>
+            <p class="text-muted small mb-3">
+                @(isPt 
+                    ? $"Tempo que suas reservas cobrem seus custos essenciais ({currencySymbol}{Model.EssentialMonthlyCost:N2}/mês)." 
+                    : $"Survival time based on essential living cost ({currencySymbol}{Model.EssentialMonthlyCost:N2}/mo).")
+            </p>
+
+            @foreach (var goal in Model.Goals.Take(4))
+            {
+                var pct = goal.ProgressPercentage.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small fw-semibold text-dark mb-1">
+                        <span>@goal.Title</span>
+                        <span>@currencySymbol@goal.CurrentAmount.ToString("N0") / @currencySymbol@goal.TargetAmount.ToString("N0")</span>
+                    </div>
+                    <div class="progress" style="height: 8px; background-color: #f1f5f9;">
+                        <div class="progress-bar bg-success rounded-pill" style="width: @(pct)%;"></div>
+                    </div>
+                </div>
+            }
+            <div class="mt-auto pt-2">
+                <a asp-controller="SavingsGoals" asp-action="Index" class="btn btn-sm btn-outline-secondary w-100">
+                    @(isPt ? "Gerenciar Reservas & Metas" : "Manage Goals & Buffer")
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Lançamentos Recentes -->
+    <div class="col-12 col-lg-7">
+        <div class="card border-0 shadow-sm p-4 bg-white h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-dark mb-0">@(isPt ? "Lançamentos Recentes" : "Recent Activity")</h5>
+                <a asp-controller="Transactions" asp-action="Index" class="btn btn-sm btn-link text-decoration-none p-0">
+                    @(isPt ? "Ver Histórico Completo" : "View All")
+                </a>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small">
+                        <tr>
+                            <th>@(isPt ? "Data" : "Date")</th>
+                            <th>@(isPt ? "Descrição" : "Description")</th>
+                            <th>@(isPt ? "Categoria" : "Category")</th>
+                            <th class="text-end">@(isPt ? "Valor" : "Amount")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.RecentTransactions.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted small">
+                                    @(isPt ? "Nenhum lançamento neste mês." : "No transactions recorded.")
+                                </td>
+                            </tr>
+                        }
+                        @foreach (var tx in Model.RecentTransactions)
+                        {
+                            var isIncome = tx.Type == IrelandFinanceApp.Models.Enums.TransactionType.Income;
+                            <tr>
+                                <td class="small text-muted">@tx.Date.ToString("dd/MM")</td>
+                                <td class="fw-semibold text-dark small">@tx.Description</td>
+                                <td>
+                                    <span class="badge bg-light text-dark border small">
+                                        @(tx.Category?.Name ?? "-")
+                                    </span>
+                                </td>
+                                <td class="text-end fw-bold small @(isIncome ? "text-success" : "text-danger")">
+                                    @(isIncome ? "+" : "-") @currencySymbol @tx.Amount.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function navigateToMonth(monthYearString) {
+            if (!monthYearString) return;
+            const parts = monthYearString.split('-');
+            if (parts.length === 2) {
+                window.location.href = `@Url.Action("Index", "Home")?month=${parseInt(parts[1], 10)}&year=${parseInt(parts[0], 10)}`;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // Símbolo literal da moeda sem escape HTML
+            const currency = '@Html.Raw(currencySymbol)';
+
+            // 1. Gráfico Histórico de Fluxo de Caixa (Barras)
+            const trendCtx = document.getElementById('cashflowTrendChart');
+            if (trendCtx) {
+                const historyLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CashflowHistory.Select(x => x.MonthLabel)));
+                const incomeData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CashflowHistory.Select(x => x.Income)));
+                const expenseData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CashflowHistory.Select(x => x.Expense)));
+
+                new Chart(trendCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: historyLabels,
+                        datasets: [
+                            {
+                                label: '@(isPt ? "Receitas" : "Income")',
+                                data: incomeData,
+                                backgroundColor: '#10b981',
+                                borderRadius: 6,
+                                maxBarThickness: 24
+                            },
+                            {
+                                label: '@(isPt ? "Despesas" : "Expenses")',
+                                data: expenseData,
+                                backgroundColor: '#f43f5e',
+                                borderRadius: 6,
+                                maxBarThickness: 24
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        plugins: {
+                            legend: { position: 'top', align: 'end', labels: { boxWidth: 12 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + currency + ' ' + Number(context.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { 
+                                grid: { color: '#f1f5f9' },
+                                ticks: {
+                                    callback: function(val) { 
+                                        return currency + ' ' + val.toLocaleString(); 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 2. Gráfico Donut de Despesas por Categoria
+            const catCtx = document.getElementById('expenseCategoryChart');
+            if (catCtx) {
+                const catLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Select(x => x.CategoryName)));
+                const catData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Select(x => x.TotalAmount)));
+
+                new Chart(catCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catData,
+                            backgroundColor: [
+                                '#10b981', '#3b82f6', '#f59e0b', '#ec4899', 
+                                '#8b5cf6', '#06b6d4', '#64748b', '#ef4444'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 10, font: { size: 11 } }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = Number(context.parsed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                        return ' ' + context.label + ': ' + currency + ' ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
+        });
+    </script>
+}

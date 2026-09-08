@@ -1,0 +1,96 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IEnumerable<IrelandFinanceApp.Models.Category>
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Categorias & Teto" : "Categories";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="fw-bold text-dark mb-1">@(isPt ? "Categorias de Gastos e Receitas" : "Expense & Income Categories")</h3>
+        <p class="text-muted small mb-0">@(isPt ? "Organize seus gastos, defina tetos mensais e marque despesas essenciais." : "Organize spending habits, set category caps, and track essential costs.")</p>
+    </div>
+    <a asp-action="Create" class="btn btn-emerald px-3">
+        <i class="bi bi-plus-lg me-1"></i> @(isPt ? "Nova Categoria" : "New Category")
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm bg-white">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="py-3 ps-4">@(isPt ? "Nome da Categoria" : "Category Name")</th>
+                    <th class="py-3">@(isPt ? "Prioridade" : "Priority")</th>
+                    <th class="py-3 text-end">@(isPt ? "Teto Mensal" : "Monthly Budget Cap")</th>
+                    <th class="py-3 pe-4 text-center" style="width: 120px;">@(isPt ? "Ações" : "Actions")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="bi bi-tags fs-2 d-block mb-2 text-secondary"></i>
+                            @(isPt ? "Nenhuma categoria cadastrada. Clique em Nova Categoria." : "No categories registered. Click New Category to add one.")
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td class="ps-4 fw-semibold text-dark">
+                            @item.Name
+                        </td>
+                        <td>
+                            @if (item.IsEssential)
+                            {
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                    <i class="bi bi-exclamation-circle-fill me-1"></i> @(isPt ? "Essencial (Sobrevivência)" : "Essential (Survival)")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                    @(isPt ? "Opcional / Estilo de Vida" : "Lifestyle / Optional")
+                                </span>
+                            }
+                        </td>
+                        <td class="text-end fw-semibold text-dark">
+                            @(item.MonthlyBudgetLimit.HasValue && item.MonthlyBudgetLimit > 0 
+                                ? $"{currencySymbol} {item.MonthlyBudgetLimit.Value.ToString("N2")}" 
+                                : "-")
+                        </td>
+                        <td class="pe-4 text-center">
+                            <div class="d-flex justify-content-center gap-2">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary border-0 p-1" title="@(isPt ? "Editar" : "Edit")">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+
+                                <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('@(isPt ? $"Tem certeza que deseja excluir \"{item.Name}\"?" : $"Delete category \"{item.Name}\"?")');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1" title="@(isPt ? "Excluir" : "Delete")">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

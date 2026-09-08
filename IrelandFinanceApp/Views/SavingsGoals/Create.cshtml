@@ -1,0 +1,70 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IrelandFinanceApp.Models.SavingsGoal
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Nova Meta" : "New Savings Goal";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+<div class="container py-4" style="max-width: 550px;">
+    <div class="card border-0 shadow-sm p-4 bg-white">
+        <h4 class="fw-bold text-dark mb-1">@(isPt ? "Nova Meta Financeira" : "New Savings Goal")</h4>
+        <p class="text-muted small mb-4">@(isPt ? "Defina o objetivo, valor pretendido e saldo inicial." : "Define your safety buffer or target purchase.")</p>
+
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label fw-semibold text-dark">@(isPt ? "Título da Meta" : "Goal Title")</label>
+                <input asp-for="Title" class="form-control" placeholder="@(isPt ? "Ex: Reserva de Emergência, Viagem, Depósito do Aluguel" : "e.g. Emergency Fund, Relocation Buffer")" autofocus />
+                <span asp-validation-for="Title" class="text-danger small"></span>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label asp-for="TargetAmount" class="form-label fw-semibold text-dark">@(isPt ? "Valor Alvo" : "Target Amount")</label>
+                    <div class="input-group">
+                        <span class="input-group-text">@currencySymbol</span>
+                        <input asp-for="TargetAmount" class="form-control" type="number" step="0.01" min="1" placeholder="5000.00" />
+                    </div>
+                    <span asp-validation-for="TargetAmount" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="CurrentAmount" class="form-label fw-semibold text-dark">@(isPt ? "Saldo Inicial" : "Initial Balance")</label>
+                    <div class="input-group">
+                        <span class="input-group-text">@currencySymbol</span>
+                        <input asp-for="CurrentAmount" class="form-control" type="number" step="0.01" min="0" value="0.00" />
+                    </div>
+                    <span asp-validation-for="CurrentAmount" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="alert alert-light border small text-muted mb-3 py-2">
+                <i class="bi bi-info-circle me-1 text-primary"></i>
+                @(isPt 
+                    ? "Se o Saldo Inicial for maior que 0, esse valor será descontado automaticamente do seu montante mensal disponível." 
+                    : "If Initial Balance is greater than 0, it will be automatically debited from your net monthly funds.")
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="TargetDate" class="form-label fw-semibold text-dark">@(isPt ? "Prazo Esperado (Opcional)" : "Target Date (Optional)")</label>
+                <input asp-for="TargetDate" class="form-control" type="date" />
+                <span asp-validation-for="TargetDate" class="text-danger small"></span>
+            </div>
+
+            <div class="d-flex justify-content-between pt-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">@(isPt ? "Cancelar" : "Cancel")</a>
+                <button type="submit" class="btn btn-emerald px-4">@(isPt ? "Salvar Meta" : "Save Goal")</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

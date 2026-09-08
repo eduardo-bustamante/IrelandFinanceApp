@@ -1,0 +1,108 @@
+﻿@page
+@model LoginModel
+@using System.Globalization
+
+@{
+    var currentCulture = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLower();
+    var isPt = currentCulture.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Entrar" : "Log In";
+    var returnUrl = Request.Path + Request.QueryString;
+}
+
+<div class="container d-flex flex-column justify-content-center align-items-center min-vh-100 py-4">
+    <div class="card border-0 shadow-sm p-4 p-sm-5 bg-white" style="width: 100%; max-width: 440px; border-radius: 16px;">
+        
+        <!-- Seletor de Idioma EN / PT -->
+        <div class="d-flex justify-content-end mb-3">
+            <div class="btn-group btn-group-sm p-1 bg-light rounded-pill border" role="group">
+                <form asp-controller="Home" asp-action="SetCulture" method="post" class="d-inline">
+                    <input type="hidden" name="culture" value="en" />
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <button type="submit" class="btn btn-sm rounded-pill px-3 fw-bold @(!isPt ? "btn-emerald shadow-sm text-white" : "btn-light text-muted border-0")" style="font-size: 0.75rem;">
+                        EN
+                    </button>
+                </form>
+
+                <form asp-controller="Home" asp-action="SetCulture" method="post" class="d-inline">
+                    <input type="hidden" name="culture" value="pt" />
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <button type="submit" class="btn btn-sm rounded-pill px-3 fw-bold @(isPt ? "btn-emerald shadow-sm text-white" : "btn-light text-muted border-0")" style="font-size: 0.75rem;">
+                        PT
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Cabeçalho -->
+        <div class="text-center mb-4">
+            <div class="d-inline-flex p-3 bg-emerald-subtle rounded-circle text-emerald mb-3">
+                <i class="bi bi-wallet2 fs-2 text-success"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-1">
+                @(isPt ? "Bem-vindo de volta" : "Welcome back")
+            </h4>
+            <p class="text-muted small mb-0">
+                @(isPt ? "Acesse seu painel financeiro pessoal" : "Sign in to manage your financial runway")
+            </p>
+        </div>
+
+        <!-- Formulário de Login -->
+        <form id="account" method="post" asp-route-returnUrl="@Model.ReturnUrl">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <!-- Email -->
+            <div class="mb-3">
+                <label asp-for="Input.Email" class="form-label small fw-semibold text-dark">
+                    @(isPt ? "Endereço de E-mail" : "Email Address")
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                    <input asp-for="Input.Email" class="form-control" placeholder="name@example.com" autofocus autocomplete="username" />
+                </div>
+                <span asp-validation-for="Input.Email" class="text-danger small"></span>
+            </div>
+
+            <!-- Senha -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label asp-for="Input.Password" class="form-label small fw-semibold text-dark mb-0">
+                        @(isPt ? "Senha" : "Password")
+                    </label>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-lock"></i></span>
+                    <input asp-for="Input.Password" class="form-control" type="password" placeholder="••••••••" autocomplete="current-password" />
+                </div>
+                <span asp-validation-for="Input.Password" class="text-danger small"></span>
+            </div>
+
+            <!-- Lembrar de mim -->
+            <div class="form-check mb-4">
+                <input asp-for="Input.RememberMe" class="form-check-input" style="cursor: pointer;" />
+                <label asp-for="Input.RememberMe" class="form-check-label small text-muted" style="cursor: pointer;">
+                    @(isPt ? "Lembrar de mim neste dispositivo" : "Remember me on this device")
+                </label>
+            </div>
+
+            <!-- Botão de Entrar -->
+            <button id="login-submit" type="submit" class="btn btn-emerald w-100 py-2 fw-semibold shadow-sm mb-3">
+                <i class="bi bi-box-arrow-in-right me-1"></i>
+                @(isPt ? "Entrar na Conta" : "Sign In")
+            </button>
+        </form>
+
+        <!-- Link para Cadastro / Registro -->
+        <div class="text-center mt-2">
+            <span class="text-muted small">
+                @(isPt ? "Não tem uma conta?" : "Don't have an account?")
+            </span>
+            <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-decoration-none small fw-semibold text-success ms-1">
+                @(isPt ? "Criar conta" : "Sign up")
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

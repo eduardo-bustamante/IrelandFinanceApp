@@ -1,0 +1,78 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Resgatar Valor" : "Withdraw Funds";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+    decimal maxAmount = ViewBag.MaxAmount ?? 0m;
+}
+
+<div class="container py-4" style="max-width: 500px;">
+    <div class="card border-0 shadow-sm p-4 bg-white">
+        <div class="text-center mb-4">
+            <div class="p-3 bg-warning-subtle text-warning-emphasis rounded-circle d-inline-flex mb-2">
+                <i class="bi bi-box-arrow-up-right fs-2"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-1">
+                @(isPt ? "Resgatar da Meta" : "Withdraw from Goal")
+            </h4>
+            <p class="text-muted small mb-0">
+                @(isPt ? "Retirar fundos de:" : "Withdrawing from:") 
+                <span class="fw-bold text-dark">@ViewBag.GoalTitle</span>
+            </p>
+            <div class="mt-2">
+                <span class="badge bg-light text-dark border">
+                    @(isPt ? "Disponível na meta:" : "Available balance:") <strong>@currencySymbol @maxAmount.ToString("N2")</strong>
+                </span>
+            </div>
+        </div>
+
+        <form asp-action="Withdraw" asp-route-id="@ViewBag.GoalId" method="post">
+            <div asp-validation-summary="All" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold text-dark">
+                    @(isPt ? "Valor a Resgatar" : "Withdrawal Amount")
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text">@currencySymbol</span>
+                    <input type="number" 
+                           step="0.01" 
+                           min="0.01" 
+                           max="@maxAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)" 
+                           name="amount" 
+                           class="form-control form-control-lg" 
+                           placeholder="0.00" 
+                           required 
+                           autofocus />
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold text-dark">
+                    @(isPt ? "Motivo / Descrição (Opcional)" : "Reason / Note (Optional)")
+                </label>
+                <input type="text" name="note" class="form-control" placeholder="@(isPt ? "Ex: Reparo urgente, Emergência médica..." : "e.g. Car repair, Medical unexpected cost...")" />
+            </div>
+
+            <div class="alert alert-light border small text-muted mb-4 py-2">
+                <i class="bi bi-info-circle me-1 text-primary"></i>
+                @(isPt 
+                    ? "Esse valor será somado como receita no seu saldo mensal atual para cobrir os seus gastos." 
+                    : "This amount will be added back as an income entry into your monthly cashflow.")
+            </div>
+
+            <div class="d-flex justify-content-between pt-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    @(isPt ? "Cancelar" : "Cancel")
+                </a>
+                <button type="submit" class="btn btn-warning px-4 fw-semibold">
+                    @(isPt ? "Confirmar Resgate" : "Confirm Withdrawal")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

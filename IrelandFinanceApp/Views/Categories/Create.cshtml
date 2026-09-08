@@ -1,0 +1,79 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IrelandFinanceApp.Models.Category
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Nova Categoria" : "New Category";
+
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+<div class="container py-4" style="max-width: 550px;">
+    <div class="card border-0 shadow-sm p-4 bg-white">
+        <h4 class="fw-bold text-dark mb-1">
+            @(isPt ? "Nova Categoria" : "New Category")
+        </h4>
+        <p class="text-muted small mb-4">
+            @(isPt ? "Crie uma categoria com ou sem teto mensal de gastos." : "Create a spending group with optional budget caps.")
+        </p>
+
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <!-- Nome da Categoria -->
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label fw-semibold text-dark">
+                    @(isPt ? "Nome da Categoria" : "Category Name")
+                </label>
+                <input asp-for="Name" class="form-control" placeholder="@(isPt ? "Ex: Aluguel, Supermercado, Transporte" : "e.g. Rent, Groceries, Public Transport")" autofocus />
+                <span asp-validation-for="Name" class="text-danger small"></span>
+            </div>
+
+            <!-- Teto Mensal -->
+            <div class="mb-3">
+                <label asp-for="MonthlyBudgetLimit" class="form-label fw-semibold text-dark">
+                    @(isPt ? $"Teto Mensal de Gastos ({currencySymbol})" : $"Monthly Budget Limit ({currencySymbol})")
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text">@currencySymbol</span>
+                    <input asp-for="MonthlyBudgetLimit" class="form-control" type="number" step="0.01" min="0" placeholder="@(isPt ? "Opcional (ex: 400,00)" : "Optional (e.g. 400.00)")" />
+                </div>
+                <span class="text-muted small">
+                    @(isPt ? "Deixe em branco se não quiser fixar um limite de gastos." : "Leave blank if no spending cap is required.")
+                </span>
+                <span asp-validation-for="MonthlyBudgetLimit" class="text-danger small"></span>
+            </div>
+
+            <!-- Switch de Custo Essencial -->
+            <div class="mb-4">
+                <div class="form-check form-switch p-3 bg-light rounded-3 border">
+                    <input class="form-check-input ms-0 me-3" type="checkbox" asp-for="IsEssential" id="isEssentialSwitch" style="cursor: pointer;">
+                    <div>
+                        <label class="form-check-label fw-semibold text-dark" for="isEssentialSwitch" style="cursor: pointer;">
+                            @(isPt ? "Gasto Essencial (Sobrevivência)" : "Essential Expense (Survival)")
+                        </label>
+                        <div class="text-muted small">
+                            @(isPt ? "Entra na conta da sua Reserva de Emergência para calcular seus meses de tranquilidade (Runway)." : "Included in your emergency runway calculations in the dashboard.")
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="d-flex justify-content-between pt-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    @(isPt ? "Cancelar" : "Cancel")
+                </a>
+                <button type="submit" class="btn btn-emerald px-4">
+                    @(isPt ? "Salvar Categoria" : "Save Category")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,110 @@
+﻿@model IrelandFinanceApp.Models.ViewModels.UserSettingsViewModel
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Configurações Regionais" : "Regional Settings";
+}
+
+<div class="container py-4" style="max-width: 650px;">
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm p-4 bg-white">
+        <h4 class="fw-bold text-dark mb-1">@(isPt ? "Preferências e Localização" : "Preferences & Localization")</h4>
+        <p class="text-muted small mb-4">@(isPt ? "Personalize o idioma do sistema, moeda e fuso horário." : "Customize system language, currency, and time zone.")</p>
+
+        <!-- Presets Rápidos -->
+        <div class="mb-4 p-3 bg-light rounded-3 border">
+            <label class="form-label fw-semibold text-dark small mb-2">@(isPt ? "Atalhos por Região" : "Quick Presets")</label>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyPreset('en', '€', 'en-IE', 'Europe/Dublin')">
+                    🇮🇪 Ireland (English / EUR €)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyPreset('pt-BR', 'R$', 'pt-BR', 'America/Sao_Paulo')">
+                    🇧🇷 Brasil (Português / BRL R$)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyPreset('en', '$', 'en-US', 'America/New_York')">
+                    🇺🇸 USA (English / USD $)
+                </button>
+            </div>
+        </div>
+
+        <form asp-action="Index" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <!-- Idioma do Sistema -->
+            <div class="mb-3">
+                <label asp-for="Language" class="form-label fw-semibold text-dark">
+                    <i class="bi bi-translate me-1"></i> @(isPt ? "Idioma da Interface" : "Interface Language")
+                </label>
+                <select asp-for="Language" id="languageSelect" class="form-select">
+                    <option value="en">English</option>
+                    <option value="pt-BR">Português (Brasil)</option>
+                </select>
+                <span asp-validation-for="Language" class="text-danger small"></span>
+            </div>
+
+            <!-- Símbolo Monetário -->
+            <div class="mb-3">
+                <label asp-for="CurrencySymbol" class="form-label fw-semibold text-dark">
+                    <i class="bi bi-cash-coin me-1"></i> @(isPt ? "Símbolo da Moeda" : "Currency Symbol")
+                </label>
+                <input asp-for="CurrencySymbol" id="currencyInput" class="form-control" placeholder="€, R$, $, £" />
+                <span asp-validation-for="CurrencySymbol" class="text-danger small"></span>
+            </div>
+
+            <!-- Formatação de Números e Datas -->
+            <div class="mb-3">
+                <label asp-for="CultureCode" class="form-label fw-semibold text-dark">
+                    <i class="bi bi-calendar3 me-1"></i> @(isPt ? "Formato de Números e Datas" : "Number & Date Format")
+                </label>
+                <select asp-for="CultureCode" id="cultureSelect" class="form-select">
+                    <option value="en-IE">English - Ireland (en-IE)</option>
+                    <option value="pt-BR">Português - Brasil (pt-BR)</option>
+                    <option value="en-US">English - USA (en-US)</option>
+                    <option value="en-GB">English - UK (en-GB)</option>
+                </select>
+                <span asp-validation-for="CultureCode" class="text-danger small"></span>
+            </div>
+
+            <!-- Fuso Horário -->
+            <div class="mb-4">
+                <label asp-for="TimeZoneId" class="form-label fw-semibold text-dark">
+                    <i class="bi bi-clock me-1"></i> @(isPt ? "Fuso Horário" : "Time Zone")
+                </label>
+                <select asp-for="TimeZoneId" id="timezoneSelect" class="form-select">
+                    <option value="Europe/Dublin">Europe/Dublin (GMT/IST)</option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo (BRT UTC-3)</option>
+                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                    <option value="UTC">UTC (Universal Coordinated Time)</option>
+                </select>
+                <span asp-validation-for="TimeZoneId" class="text-danger small"></span>
+            </div>
+
+            <div class="d-flex justify-content-end pt-2">
+                <button type="submit" class="btn btn-emerald px-4">
+                    @(isPt ? "Salvar Preferências" : "Save Settings")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function applyPreset(lang, symbol, culture, tz) {
+            document.getElementById('languageSelect').value = lang;
+            document.getElementById('currencyInput').value = symbol;
+            document.getElementById('cultureSelect').value = culture;
+            document.getElementById('timezoneSelect').value = tz;
+        }
+    </script>
+}
