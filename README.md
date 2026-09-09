@@ -1,5 +1,83 @@
 # 🍀 Ireland Finance — Personal Cash Flow & Runway Manager
 
+[![en](https://img.shields.io/badge/lang-en-red.svg)](#)
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](README.pt-BR.md)
+![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
+![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-MVC-blue?logo=dotnet)
+![Entity Framework Core](https://img.shields.io/badge/EF_Core-10.0-512BD4?logo=nuget)
+![SQL Server](https://img.shields.io/badge/SQL_Server-2022-CC292B?logo=microsoft-sql-server&logoColor=white)
+![Bootstrap 5](https://img.shields.io/badge/Bootstrap-5.3-7952B3?logo=bootstrap&logoColor=white)
+
+> A robust, modern personal finance web platform built with .NET 10 and ASP.NET Core, designed for real-world cash flow control, credit card invoice allocation, and runway/burn rate analytics.
+
+---
+
+## 📌 Key Features
+
+* **Real Cash Flow Discipline:**
+  * Strict separation between immediate liquid movements (`DebitOrCash`) and future credit obligations.
+  * Account balances reflect true settled liquidity without artificial inflation.
+
+* **Automated Credit Card Cycle Engine:**
+  * Multi-card support with configurable credit limit, invoice closing day, and due date.
+  * Purchases automatically routed to the correct billing cycle based on the transaction date.
+  * Real-time visibility into committed credit vs. available balance.
+
+* **Burn Rate & Runway Analytics:**
+  * **Daily Burn Rate:** Current month's average daily expense run rate.
+  * **Runway Calculation:** Automated survival runway in months based on liquid emergency reserves and core commitments.
+  * **Month-End Forecast:** Dynamic projection of total period outflow.
+
+* **Emergency Reserves & Savings Goals:**
+  * Short-term and long-term goal tracking with target completion status.
+  * Seamless integration with liquid runway calculations.
+
+* **Multi-Currency & Regional Preferences:**
+  * Per-user localization supporting `EUR (€)`, `BRL (R$)`, `USD ($)`, and `GBP (£)`.
+  * Dedicated regional preferences supporting culture code formatting (`en-IE`, `pt-BR`) and IANA timezones.
+
+* **Modern SaaS Architecture & UI:**
+  * Built on a custom *Deep Slate & Emerald* theme with responsive sidebar layout.
+  * Completely revamped Identity management console (Profile, Regional Preferences, Security, 2FA, Data Privacy).
+
+---
+
+## 🛠️ Tech Stack
+
+* **Runtime & Framework:** C# / .NET 10, ASP.NET Core MVC, Razor Pages
+* **Persistence & ORM:** Entity Framework Core 10, Microsoft SQL Server
+* **Identity & Security:** ASP.NET Core Identity (hashed credentials, antiforgery CSRF tokens)
+* **Frontend:** Bootstrap 5.3, Bootstrap Icons, Clean CSS3 Design System
+* **Data Integrity:** Fully normalized relational schemas with explicit referential integrity (`DeleteBehavior.Restrict` ensuring no cascade cycle failures)
+
+---
+
+## 📂 Architecture Overview
+
+```text
+IrelandFinanceApp/
+├── Areas/
+│   └── Identity/              # Authentication & Identity Subsystem
+│       └── Pages/Account/
+│           └── Manage/         # Profile, Preferences, Security, 2FA
+├── Controllers/
+│   ├── HomeController.cs      # Core Dashboard & Financial KPI Engine
+│   ├── TransactionsController.cs
+│   └── CreditCardsController.cs
+├── Data/
+│   └── AppDbContext.cs        # EF Core Configurations & Relationship Constraints
+├── Models/
+│   ├── ApplicationUser.cs     # Identity entity extended with localization preferences
+│   ├── CreditCard.cs          # Invoice cycle and closing calculations
+│   ├── Transaction.cs         # Double-entry-ready financial ledger
+│   ├── Category.cs            # Budget grouping and limits
+│   └── SavingsGoal.cs         # Goal accumulation tracking
+└── Views/
+    ├── Shared/_Layout.cshtml   # SaaS Shell with sidebar and responsive topbar
+    └── Home/Index.cshtml       # Executive Dashboard
+
+# 🍀 Ireland Finance — Personal Cash Flow & Runway Manager
+
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-MVC-blue?logo=dotnet)
 ![Entity Framework Core](https://img.shields.io/badge/EF_Core-10.0-512BD4?logo=nuget)
