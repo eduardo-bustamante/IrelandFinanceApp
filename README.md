@@ -76,6 +76,8 @@ IrelandFinanceApp/
     ├── Shared/_Layout.cshtml   # SaaS Shell with sidebar and responsive topbar
     └── Home/Index.cshtml       # Executive Dashboard
 
+Versão PT-BR
+
 # 🍀 Ireland Finance — Personal Cash Flow & Runway Manager
 
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
