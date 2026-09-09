@@ -26,43 +26,38 @@ public class TransactionsController : Controller
         System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
 
     // ==========================================
-    // 1. LISTAGEM COM FILTROS AVANÇADOS
+    // 1. LISTAGEM COM FILTROS
     // ==========================================
-    // GET: Transactions
     public async Task<IActionResult> Index([FromQuery] TransactionFilterViewModel filter)
     {
         var query = _context.Transactions
             .Include(t => t.Category)
+            .Include(t => t.CreditCard)
             .Where(t => t.UserId == CurrentUserId);
 
-        // Filtro por texto na descrição
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
         {
             var term = filter.SearchTerm.Trim().ToLower();
             query = query.Where(t => t.Description.ToLower().Contains(term));
         }
 
-        // Filtro por data inicial
         if (filter.StartDate.HasValue)
         {
             var startUtc = DateTime.SpecifyKind(filter.StartDate.Value.Date, DateTimeKind.Utc);
             query = query.Where(t => t.Date >= startUtc);
         }
 
-        // Filtro por data final (até 23:59:59.999 do dia selecionado)
         if (filter.EndDate.HasValue)
         {
             var endUtc = DateTime.SpecifyKind(filter.EndDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
             query = query.Where(t => t.Date <= endUtc);
         }
 
-        // Filtro por Categoria
         if (filter.CategoryId.HasValue && filter.CategoryId > 0)
         {
             query = query.Where(t => t.CategoryId == filter.CategoryId.Value);
         }
 
-        // Filtro por Tipo (Receita / Despesa)
         if (filter.Type.HasValue)
         {
             query = query.Where(t => t.Type == filter.Type.Value);
@@ -86,28 +81,63 @@ public class TransactionsController : Controller
     // ==========================================
     // 2. CRIAÇÃO DE LANÇAMENTO
     // ==========================================
-    // GET: Transactions/Create
     public async Task<IActionResult> Create()
     {
-        await PopulateCategoriesDropDownList();
-        return View(new Transaction { Date = DateTime.UtcNow });
+        await PopulateDropDownLists();
+        return View(new Transaction
+        {
+            Date = DateTime.UtcNow,
+            PaymentMethod = PaymentMethod.DebitOrCash
+        });
     }
 
-    // POST: Transactions/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("Description,Amount,Date,Type,CategoryId")] Transaction transaction)
+    public async Task<IActionResult> Create([Bind("Description,Amount,Date,Type,PaymentMethod,CreditCardId,CategoryId")] Transaction transaction)
     {
         transaction.UserId = CurrentUserId;
 
-        // Remove validações automáticas de navegação que possam invalidar o ModelState
         ModelState.Remove(nameof(Transaction.User));
         ModelState.Remove(nameof(Transaction.Category));
+        ModelState.Remove(nameof(Transaction.CreditCard));
         ModelState.Remove(nameof(Transaction.UserId));
+
+        // Validação de regra: compras no cartão só podem ser Despesas
+        if (transaction.PaymentMethod == PaymentMethod.CreditCard)
+        {
+            if (!transaction.CreditCardId.HasValue || transaction.CreditCardId.Value <= 0)
+            {
+                ModelState.AddModelError(nameof(Transaction.CreditCardId),
+                    IsPortuguese ? "Selecione o cartão de crédito utilizado." : "Please select the credit card used.");
+            }
+
+            transaction.Type = TransactionType.Expense;
+        }
+        else
+        {
+            transaction.CreditCardId = null;
+            transaction.InvoiceMonth = null;
+            transaction.InvoiceYear = null;
+        }
 
         if (ModelState.IsValid)
         {
             transaction.Date = DateTime.SpecifyKind(transaction.Date, DateTimeKind.Utc);
+
+            // Calcula o período de fatura caso seja compra no cartão
+            if (transaction.PaymentMethod == PaymentMethod.CreditCard && transaction.CreditCardId.HasValue)
+            {
+                var card = await _context.CreditCards
+                    .FirstOrDefaultAsync(c => c.Id == transaction.CreditCardId.Value && c.UserId == CurrentUserId);
+
+                if (card != null)
+                {
+                    var period = card.GetInvoicePeriod(transaction.Date);
+                    transaction.InvoiceMonth = period.Month;
+                    transaction.InvoiceYear = period.Year;
+                    transaction.IsSettled = false;
+                }
+            }
 
             _context.Transactions.Add(transaction);
             await _context.SaveChangesAsync();
@@ -119,14 +149,13 @@ public class TransactionsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        await PopulateCategoriesDropDownList(transaction.CategoryId);
+        await PopulateDropDownLists(transaction.CategoryId, transaction.CreditCardId);
         return View(transaction);
     }
 
     // ==========================================
     // 3. EDIÇÃO DE LANÇAMENTO
     // ==========================================
-    // GET: Transactions/Edit/5
     public async Task<IActionResult> Edit(int? id)
     {
         if (id == null) return NotFound();
@@ -136,34 +165,47 @@ public class TransactionsController : Controller
 
         if (transaction == null) return NotFound();
 
-        await PopulateCategoriesDropDownList(transaction.CategoryId);
+        await PopulateDropDownLists(transaction.CategoryId, transaction.CreditCardId);
         return View(transaction);
     }
 
-    // POST: Transactions/Edit/5
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, [Bind("Id,Description,Amount,Date,Type,CategoryId,SavingsGoalId")] Transaction model)
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Description,Amount,Date,Type,PaymentMethod,CreditCardId,CategoryId,SavingsGoalId,IsSettled")] Transaction model)
     {
         if (id != model.Id) return NotFound();
 
-        // Localiza a entidade original do usuário autenticado no banco
         var existingTransaction = await _context.Transactions
             .FirstOrDefaultAsync(t => t.Id == id && t.UserId == CurrentUserId);
 
         if (existingTransaction == null) return NotFound();
 
-        // Remove navegações do ModelState
         ModelState.Remove(nameof(Transaction.User));
         ModelState.Remove(nameof(Transaction.Category));
+        ModelState.Remove(nameof(Transaction.CreditCard));
         ModelState.Remove(nameof(Transaction.UserId));
+
+        if (model.PaymentMethod == PaymentMethod.CreditCard)
+        {
+            if (!model.CreditCardId.HasValue || model.CreditCardId.Value <= 0)
+            {
+                ModelState.AddModelError(nameof(Transaction.CreditCardId),
+                    IsPortuguese ? "Selecione o cartão de crédito utilizado." : "Please select the credit card used.");
+            }
+            model.Type = TransactionType.Expense;
+        }
+        else
+        {
+            model.CreditCardId = null;
+            model.InvoiceMonth = null;
+            model.InvoiceYear = null;
+        }
 
         if (ModelState.IsValid)
         {
             try
             {
-                // Se a transação estiver atrelada a uma Meta (Aporte ou Resgate), 
-                // ajustamos a diferença de valor na meta correspondente
+                // Ajuste de saldo em metas de poupança, se vinculado
                 if (existingTransaction.SavingsGoalId.HasValue)
                 {
                     var goal = await _context.SavingsGoals
@@ -172,28 +214,39 @@ public class TransactionsController : Controller
                     if (goal != null)
                     {
                         decimal amountDifference = model.Amount - existingTransaction.Amount;
-
-                        // Para depósitos/aportes (Expense), aumentar o valor aumenta a meta
-                        if (model.Type == TransactionType.Expense)
-                        {
-                            goal.CurrentAmount += amountDifference;
-                        }
-                        // Para saques/resgates (Income), aumentar o saque reduz a meta
-                        else if (model.Type == TransactionType.Income)
-                        {
-                            goal.CurrentAmount -= amountDifference;
-                        }
-
+                        if (model.Type == TransactionType.Expense) goal.CurrentAmount += amountDifference;
+                        else if (model.Type == TransactionType.Income) goal.CurrentAmount -= amountDifference;
                         if (goal.CurrentAmount < 0) goal.CurrentAmount = 0;
                     }
                 }
 
-                // Atualiza as propriedades rastreadas
                 existingTransaction.Description = model.Description;
                 existingTransaction.Amount = model.Amount;
                 existingTransaction.Date = DateTime.SpecifyKind(model.Date, DateTimeKind.Utc);
                 existingTransaction.Type = model.Type;
                 existingTransaction.CategoryId = model.CategoryId;
+                existingTransaction.PaymentMethod = model.PaymentMethod;
+                existingTransaction.CreditCardId = model.CreditCardId;
+
+                // Recalcula o ciclo da fatura
+                if (model.PaymentMethod == PaymentMethod.CreditCard && model.CreditCardId.HasValue)
+                {
+                    var card = await _context.CreditCards
+                        .FirstOrDefaultAsync(c => c.Id == model.CreditCardId.Value && c.UserId == CurrentUserId);
+
+                    if (card != null)
+                    {
+                        var period = card.GetInvoicePeriod(existingTransaction.Date);
+                        existingTransaction.InvoiceMonth = period.Month;
+                        existingTransaction.InvoiceYear = period.Year;
+                    }
+                }
+                else
+                {
+                    existingTransaction.InvoiceMonth = null;
+                    existingTransaction.InvoiceYear = null;
+                    existingTransaction.IsSettled = false;
+                }
 
                 _context.Update(existingTransaction);
                 await _context.SaveChangesAsync();
@@ -206,39 +259,19 @@ public class TransactionsController : Controller
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!await TransactionExists(model.Id))
-                {
+                if (!await _context.Transactions.AnyAsync(e => e.Id == model.Id && e.UserId == CurrentUserId))
                     return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
         }
 
-        await PopulateCategoriesDropDownList(model.CategoryId);
+        await PopulateDropDownLists(model.CategoryId, model.CreditCardId);
         return View(model);
     }
 
     // ==========================================
     // 4. EXCLUSÃO DE LANÇAMENTO
     // ==========================================
-    // GET: Transactions/Delete/5 (Confirmação opcional)
-    public async Task<IActionResult> Delete(int? id)
-    {
-        if (id == null) return NotFound();
-
-        var transaction = await _context.Transactions
-            .Include(t => t.Category)
-            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == CurrentUserId);
-
-        if (transaction == null) return NotFound();
-
-        return View(transaction);
-    }
-
-    // POST: Transactions/Delete/5
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
@@ -248,7 +281,6 @@ public class TransactionsController : Controller
 
         if (transaction != null)
         {
-            // Se for um lançamento automático de meta de poupança, estorna o saldo da meta
             if (transaction.SavingsGoalId.HasValue)
             {
                 var goal = await _context.SavingsGoals
@@ -256,15 +288,8 @@ public class TransactionsController : Controller
 
                 if (goal != null)
                 {
-                    if (transaction.Type == TransactionType.Expense) // Aporte cancelado
-                    {
-                        goal.CurrentAmount -= transaction.Amount;
-                    }
-                    else if (transaction.Type == TransactionType.Income) // Resgate cancelado
-                    {
-                        goal.CurrentAmount += transaction.Amount;
-                    }
-
+                    if (transaction.Type == TransactionType.Expense) goal.CurrentAmount -= transaction.Amount;
+                    else if (transaction.Type == TransactionType.Income) goal.CurrentAmount += transaction.Amount;
                     if (goal.CurrentAmount < 0) goal.CurrentAmount = 0;
                 }
             }
@@ -280,22 +305,20 @@ public class TransactionsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ==========================================
-    // MÉTODOS AUXILIARES
-    // ==========================================
-    private async Task PopulateCategoriesDropDownList(object? selectedCategory = null)
+    private async Task PopulateDropDownLists(object? selectedCategory = null, object? selectedCard = null)
     {
         var categories = await _context.Categories
             .Where(c => c.UserId == CurrentUserId)
             .OrderBy(c => c.Name)
             .ToListAsync();
 
-        ViewBag.CategoryId = new SelectList(categories, "Id", "Name", selectedCategory);
-        ViewBag.Categories = new SelectList(categories, "Id", "Name", selectedCategory);
-    }
+        var cards = await _context.CreditCards
+            .Where(c => c.UserId == CurrentUserId)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
 
-    private async Task<bool> TransactionExists(int id)
-    {
-        return await _context.Transactions.AnyAsync(e => e.Id == id && e.UserId == CurrentUserId);
+        ViewBag.CategoryId = new SelectList(categories, "Id", "Name", selectedCategory);
+        ViewBag.CreditCardId = new SelectList(cards, "Id", "Name", selectedCard);
+        ViewBag.HasCreditCards = cards.Any();
     }
 }

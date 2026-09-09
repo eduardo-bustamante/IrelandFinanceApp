@@ -1,0 +1,64 @@
+﻿@page
+@model Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Manage.Internal.EmailModel
+@{
+    ViewData["Title"] = "E-mail";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h5 class="fw-bold text-dark mb-0">Endereço de E-mail</h5>
+        <p class="text-muted small mb-0">Gerencie o e-mail de acesso e notificações do sistema.</p>
+    </div>
+    <span class="badge px-3 py-2 rounded-pill bg-light text-secondary border">
+        <i class="bi bi-envelope-at me-1"></i> Acesso
+    </span>
+</div>
+
+<partial name="_StatusMessage" for="StatusMessage" />
+
+<form id="email-form" method="post" class="mt-4">
+    <div asp-validation-summary="All" class="text-danger small mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label small fw-semibold text-secondary">E-mail Atual</label>
+        @if (Model.IsEmailConfirmed)
+        {
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope-check"></i></span>
+                <input asp-for="Email" class="form-control bg-light" disabled readonly />
+                <span class="input-group-text text-success bg-light border-start-0" title="Confirmado">
+                    <i class="bi bi-check-circle-fill"></i>
+                </span>
+            </div>
+        }
+        else
+        {
+            <div class="input-group">
+                <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope-exclamation"></i></span>
+                <input asp-for="Email" class="form-control bg-light" disabled readonly />
+                <button id="email-verification" type="submit" asp-page-handler="SendVerificationEmail" class="btn btn-outline-warning btn-sm">
+                    Enviar Confirmação
+                </button>
+            </div>
+        }
+    </div>
+
+    <div class="mb-4">
+        <label asp-for="Input.NewEmail" class="form-label small fw-semibold text-secondary">Novo E-mail</label>
+        <div class="input-group">
+            <span class="input-group-text bg-white text-muted"><i class="bi bi-pencil-square"></i></span>
+            <input asp-for="Input.NewEmail" class="form-control" autocomplete="email" placeholder="novo.email@dominio.com" />
+        </div>
+        <span asp-validation-for="Input.NewEmail" class="text-danger small"></span>
+    </div>
+
+    <div class="pt-3 border-top d-flex justify-content-end">
+        <button id="change-email-button" type="submit" asp-page-handler="ChangeEmail" class="btn text-white px-4 py-2 fw-semibold shadow-sm" style="background-color: #10b981; border-radius: 8px;">
+            <i class="bi bi-check2 me-1"></i> Atualizar E-mail
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

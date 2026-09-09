@@ -1,0 +1,84 @@
+﻿@page
+@using Microsoft.AspNetCore.Http.Features
+@model Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Manage.Internal.TwoFactorAuthenticationModel
+@{
+    ViewData["Title"] = "Autenticação em Duas Etapas";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h5 class="fw-bold text-dark mb-0">Autenticação em Duas Etapas (2FA)</h5>
+        <p class="text-muted small mb-0">Aumente a proteção da sua conta adicionando uma etapa extra de confirmação.</p>
+    </div>
+    <span class="badge px-3 py-2 rounded-pill bg-light text-secondary border">
+        <i class="bi bi-shield-shaded me-1"></i> Segurança
+    </span>
+</div>
+
+<partial name="_StatusMessage" for="StatusMessage" />
+
+@{
+    var consentFeature = HttpContext.Features.Get<ITrackingConsentFeature>();
+    @if (consentFeature?.CanTrack ?? true)
+    {
+        @if (Model.Is2faEnabled)
+        {
+            if (Model.RecoveryCodesLeft == 0)
+            {
+                <div class="alert alert-danger d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                    <div>Você não tem mais códigos de recuperação restantes. Gere novos códigos imediatamente.</div>
+                </div>
+            }
+            else if (Model.RecoveryCodesLeft <= 3)
+            {
+                <div class="alert alert-warning d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-circle-fill fs-5"></i>
+                    <div>Restam apenas <strong>@Model.RecoveryCodesLeft</strong> códigos de recuperação.</div>
+                </div>
+            }
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <a asp-page="./GenerateRecoveryCodes" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    Redefinir Códigos de Recuperação
+                </a>
+                <form method="post" style="display: inline-block">
+                    <button type="submit" asp-page-handler="Disable2fa" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                        Desativar 2FA
+                    </button>
+                </form>
+            </div>
+        }
+
+        <div class="card border rounded-3 p-4 bg-light">
+            <h6 class="fw-bold text-dark mb-2">Aplicativo Autenticador (TOTP)</h6>
+            <p class="text-muted small mb-3">Use aplicativos como Google Authenticator ou Microsoft Authenticator no smartphone.</p>
+
+            <div>
+                @if (!Model.HasAuthenticator)
+                {
+                    <a id="enable-authenticator" asp-page="./EnableAuthenticator" class="btn text-white btn-sm px-3 py-2 fw-semibold rounded-pill" style="background-color: #10b981;">
+                        <i class="bi bi-plus-circle me-1"></i> Configurar Autenticador
+                    </a>
+                }
+                else
+                {
+                    <div class="d-flex gap-2">
+                        <a id="enable-authenticator" asp-page="./EnableAuthenticator" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                            Reconfigurar App
+                        </a>
+                        <a id="reset-authenticator" asp-page="./ResetAuthenticator" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                            Redefinir Chave
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            <strong>Política de cookies não aceita.</strong> É necessário consentir o rastreamento técnico para habilitar 2FA.
+        </div>
+    }
+}

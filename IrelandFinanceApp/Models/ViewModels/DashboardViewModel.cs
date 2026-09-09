@@ -2,53 +2,68 @@
 
 namespace IrelandFinanceApp.Models.ViewModels;
 
-public class MonthlyCashflowHistory
+public class DashboardViewModel
+{
+    // Período Selecionado
+    public DateTime SelectedDate { get; set; } = DateTime.UtcNow;
+    public int SelectedYear => SelectedDate.Year;
+    public int SelectedMonth => SelectedDate.Month;
+
+    // Métricas do Mês / Caixa Real
+    public decimal CurrentBalance { get; set; }
+    public decimal MonthlyIncome { get; set; }
+    public decimal MonthlyExpense { get; set; }
+    public decimal MonthlyExpenses => MonthlyExpense;
+    public decimal MonthlyBalance => MonthlyIncome - MonthlyExpense;
+
+    // Taxa de Poupança e Projeções
+    public decimal SavingsRate => MonthlyIncome > 0 ? Math.Max(0, (MonthlyBalance / MonthlyIncome) * 100) : 0;
+    public decimal DailyBurnRate { get; set; }
+    public decimal ProjectedEndOfMonthExpense { get; set; }
+
+    // Runway / Reserva de Emergência
+    public decimal TotalSavings { get; set; }
+    public decimal EssentialMonthlyCost { get; set; }
+    public decimal MonthsCovered { get; set; }
+    public decimal RunwayMonths => MonthsCovered;
+
+    // Cartões de Crédito
+    public decimal TotalCommittedCredit { get; set; }
+    public decimal CurrentMonthInvoiceTotal { get; set; }
+    public List<CreditCard> CreditCards { get; set; } = new();
+
+    // Metas de Poupança (com suporte a Goals e SavingsGoals)
+    public List<SavingsGoal> SavingsGoals { get; set; } = new();
+    public List<SavingsGoal> Goals
+    {
+        get => SavingsGoals;
+        set => SavingsGoals = value;
+    }
+
+    // Histórico de Fluxo de Caixa (linhas 231-233 do Index.cshtml)
+    public List<CashflowMonthSummaryViewModel> CashflowHistory { get; set; } = new();
+
+    // Categorias e Lançamentos Recentes
+    public List<CategoryExpenseSummaryViewModel> ExpensesByCategory { get; set; } = new();
+    public List<CategoryExpenseSummaryViewModel> CategoryExpenses
+    {
+        get => ExpensesByCategory;
+        set => ExpensesByCategory = value;
+    }
+    public List<Transaction> RecentTransactions { get; set; } = new();
+}
+
+public class CategoryExpenseSummaryViewModel
+{
+    public string CategoryName { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public decimal Percentage { get; set; }
+}
+
+public class CashflowMonthSummaryViewModel
 {
     public string MonthLabel { get; set; } = string.Empty;
     public decimal Income { get; set; }
     public decimal Expense { get; set; }
-    public decimal NetSavings { get; set; }
-}
-
-public class BudgetSummary
-{
-    public string CategoryName { get; set; } = string.Empty;
-    public bool IsEssential { get; set; }
-    public decimal BudgetLimit { get; set; }
-    public decimal SpentAmount { get; set; }
-    public decimal RemainingAmount => BudgetLimit - SpentAmount;
-    public decimal PercentageUsed => BudgetLimit > 0
-        ? Math.Round((SpentAmount / BudgetLimit) * 100, 1)
-        : 0;
-    public bool IsOverBudget => SpentAmount > BudgetLimit;
-}
-
-public class DashboardViewModel
-{
-    public DateTime SelectedDate { get; set; }
-    public int SelectedMonth => SelectedDate.Month;
-    public int SelectedYear => SelectedDate.Year;
-
-    public decimal MonthlyIncome { get; set; }
-    public decimal MonthlyExpenses { get; set; }
-    public decimal MonthlyBalance => MonthlyIncome - MonthlyExpenses;
-
-    // Métricas de Inteligência Contábil
-    public decimal SavingsRate => MonthlyIncome > 0 && MonthlyBalance > 0
-        ? Math.Round((MonthlyBalance / MonthlyIncome) * 100, 1)
-        : 0;
-
-    public decimal DailyBurnRate { get; set; }
-    public decimal ProjectedEndOfMonthExpense { get; set; }
-
-    public decimal EssentialMonthlyCost { get; set; }
-    public decimal MonthsCovered { get; set; }
-
-    public List<CategoryExpenseSummary> ExpensesByCategory { get; set; } = new();
-    public List<BudgetSummary> BudgetSummaries { get; set; } = new();
-    public List<SavingsGoal> Goals { get; set; } = new();
-    public List<Transaction> RecentTransactions { get; set; } = new();
-
-    // Histórico dos últimos 6 meses para o gráfico
-    public List<MonthlyCashflowHistory> CashflowHistory { get; set; } = new();
+    public decimal NetBalance => Income - Expense;
 }

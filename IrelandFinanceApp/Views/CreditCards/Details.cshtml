@@ -1,0 +1,161 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@model IrelandFinanceApp.Models.ViewModels.CreditCardDetailsViewModel
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = $"{Model.Card.Name} - " + (isPt ? "Fatura" : "Invoice");
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+
+    var prevMonthDate = new DateTime(Model.SelectedYear, Model.SelectedMonth, 1).AddMonths(-1);
+    var nextMonthDate = new DateTime(Model.SelectedYear, Model.SelectedMonth, 1).AddMonths(1);
+}
+
+<div class="container py-4">
+    <!-- Cabeçalho & Navegação de Faturas -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div class="d-flex align-items-center gap-2">
+            <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <h4 class="fw-bold text-dark mb-0">@Model.Card.Name</h4>
+                <span class="badge bg-light text-dark border">
+                    @(isPt ? "Fecha dia" : "Closes on") @Model.Card.ClosingDay | @(isPt ? "Vence dia" : "Due on") @Model.Card.DueDay
+                </span>
+            </div>
+        </div>
+
+        <!-- Seletor de Mês da Fatura -->
+        <div class="btn-group shadow-sm bg-white rounded-pill p-1 border">
+            <a asp-action="Details" asp-route-id="@Model.Card.Id" asp-route-month="@prevMonthDate.Month" asp-route-year="@prevMonthDate.Year" class="btn btn-sm btn-light rounded-circle">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <span class="px-3 d-flex align-items-center fw-bold text-dark" style="font-size: 0.9rem;">
+                @(new DateTime(Model.SelectedYear, Model.SelectedMonth, 1).ToString("MMMM yyyy", System.Globalization.CultureInfo.CurrentUICulture))
+            </span>
+            <a asp-action="Details" asp-route-id="@Model.Card.Id" asp-route-month="@nextMonthDate.Month" asp-route-year="@nextMonthDate.Year" class="btn btn-sm btn-light rounded-circle">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Cards de Resumo da Fatura -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 bg-white" style="border-radius: 16px;">
+                <div class="text-muted small mb-1">@(isPt ? "Valor da Fatura Selecionada" : "Selected Invoice Total")</div>
+                <h3 class="fw-bold @(Model.IsInvoiceSettled ? "text-success" : "text-danger") mb-2">
+                    @currencySymbol @Model.InvoiceTotal.ToString("N2")
+                </h3>
+                <div>
+                    @if (Model.IsInvoiceSettled)
+                    {
+                        <span class="badge bg-success-subtle text-success border border-success">
+                            <i class="bi bi-check2 me-1"></i>@(isPt ? "Fatura Quitada no Caixa" : "Settled in Cashflow")
+                        </span>
+                    }
+                    else if (Model.InvoiceTotal > 0)
+                    {
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">
+                            <i class="bi bi-clock me-1"></i>@(isPt ? "Aberta / Pendente" : "Open / Pending")
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-light text-muted border">@(isPt ? "Sem Lançamentos" : "No Charges")</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 bg-white" style="border-radius: 16px;">
+                <div class="text-muted small mb-1">@(isPt ? "Total Comprometido (Todas as Faturas)" : "Committed across all Invoices")</div>
+                <h3 class="fw-bold text-dark mb-2">@currencySymbol @Model.TotalOpenInvoices.ToString("N2")</h3>
+                <div class="text-muted small">
+                    @(isPt ? "Gasto acumulado aguardando quitação" : "Pending payoff across all cycles")
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-4 bg-white" style="border-radius: 16px;">
+                <div class="text-muted small mb-1">@(isPt ? "Limite Disponível" : "Available Credit Limit")</div>
+                <h3 class="fw-bold text-emerald mb-2">@currencySymbol @Model.AvailableLimit.ToString("N2")</h3>
+                <div class="text-muted small">
+                    @(isPt ? "de" : "of") @currencySymbol @Model.Card.CreditLimit.ToString("N2")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão de Ação: Pagar Fatura -->
+    @if (!Model.IsInvoiceSettled && Model.InvoiceTotal > 0)
+    {
+        <div class="alert alert-light border shadow-sm p-3 rounded-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+            <div>
+                <strong class="text-dark">@(isPt ? "Vai pagar esta fatura no seu banco agora?" : "Ready to settle this bill?")</strong>
+                <p class="text-muted small mb-0">@(isPt ? "Ao clicar abaixo, o app criará uma saída única no caixa do mês correspondente." : "A single cash expense transaction will be logged in your cash flow.")</p>
+            </div>
+            <form asp-action="PayInvoice" method="post">
+                <input type="hidden" name="cardId" value="@Model.Card.Id" />
+                <input type="hidden" name="month" value="@Model.SelectedMonth" />
+                <input type="hidden" name="year" value="@Model.SelectedYear" />
+                <button type="submit" class="btn btn-emerald fw-semibold px-4 shadow-sm" onclick="return confirm('@(isPt ? "Confirma o pagamento desta fatura no caixa?" : "Confirm invoice cash settlement?")');">
+                    <i class="bi bi-wallet2 me-1"></i>@(isPt ? "Pagar Fatura" : "Pay Bill")
+                </button>
+            </form>
+        </div>
+    }
+
+    <!-- Tabela de Lançamentos da Fatura -->
+    <div class="card border-0 shadow-sm bg-white" style="border-radius: 16px; overflow: hidden;">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold text-dark mb-0">
+                <i class="bi bi-list-check me-2 text-emerald"></i>
+                @(isPt ? "Gastos desta Fatura" : "Invoice Items") (@Model.InvoiceTransactions.Count)
+            </h6>
+        </div>
+
+        @if (!Model.InvoiceTransactions.Any())
+        {
+            <div class="p-5 text-center text-muted">
+                @(isPt ? "Nenhuma compra registrada nesta fatura." : "No transactions found for this invoice period.")
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr style="font-size: 0.8rem; text-transform: uppercase;">
+                            <th class="ps-4">@(isPt ? "Data Compra" : "Date")</th>
+                            <th>@(isPt ? "Descrição" : "Description")</th>
+                            <th>@(isPt ? "Categoria" : "Category")</th>
+                            <th class="text-end pe-4">@(isPt ? "Valor" : "Amount")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.InvoiceTransactions)
+                        {
+                            <tr>
+                                <td class="ps-4 text-muted small">@item.Date.ToString("dd/MM/yyyy")</td>
+                                <td class="fw-semibold text-dark">@item.Description</td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        @(item.Category?.Name ?? "Sem Categoria")
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4 fw-bold text-danger">
+                                    - @currencySymbol @item.Amount.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

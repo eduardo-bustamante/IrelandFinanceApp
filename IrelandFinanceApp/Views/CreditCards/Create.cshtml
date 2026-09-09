@@ -1,0 +1,62 @@
+﻿@model IrelandFinanceApp.Models.ViewModels.CreditCardCreateEditViewModel
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Novo Cartão" : "New Credit Card";
+}
+
+<div class="container py-4" style="max-width: 540px;">
+    <div class="card border-0 shadow-sm p-4 bg-white" style="border-radius: 16px;">
+        <div class="d-flex align-items-center gap-2 mb-4">
+            <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="fw-bold text-dark mb-0">@(isPt ? "Novo Cartão de Crédito" : "New Credit Card")</h4>
+        </div>
+
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label fw-semibold small text-dark">@(isPt ? "Nome do Cartão" : "Card Name")</label>
+                <input asp-for="Name" class="form-control" placeholder="@(isPt ? "Ex: Revolut, Nubank, AIB" : "e.g. Revolut, AIB")" required />
+                <span asp-validation-for="Name" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="CreditLimit" class="form-label fw-semibold small text-dark">@(isPt ? "Limite de Crédito (€)" : "Credit Limit (€)")</label>
+                <input asp-for="CreditLimit" type="number" step="0.01" min="0.01" class="form-control" placeholder="1000.00" required />
+                <span asp-validation-for="CreditLimit" class="text-danger small"></span>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <label asp-for="ClosingDay" class="form-label fw-semibold small text-dark">@(isPt ? "Dia Fechamento" : "Closing Day")</label>
+                    <input asp-for="ClosingDay" type="number" min="1" max="31" class="form-control" required />
+                    <span class="form-text text-muted" style="font-size: 0.72rem;">@(isPt ? "Dia em que encerra o ciclo" : "Cycle cut-off day")</span>
+                </div>
+                <div class="col-6">
+                    <label asp-for="DueDay" class="form-label fw-semibold small text-dark">@(isPt ? "Dia Vencimento" : "Due Day")</label>
+                    <input asp-for="DueDay" type="number" min="1" max="31" class="form-control" required />
+                    <span class="form-text text-muted" style="font-size: 0.72rem;">@(isPt ? "Dia de pagar a fatura" : "Payment deadline")</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="ColorHex" class="form-label fw-semibold small text-dark">@(isPt ? "Cor do Cartão" : "Card Color")</label>
+                <input asp-for="ColorHex" type="color" class="form-control form-control-color w-100" style="height: 42px;" />
+            </div>
+
+            <div class="d-flex justify-content-between pt-2 border-top">
+                <a asp-action="Index" class="btn btn-outline-secondary px-3">@(isPt ? "Cancelar" : "Cancel")</a>
+                <button type="submit" class="btn btn-emerald px-4 shadow-sm">
+                    <i class="bi bi-check2 me-1"></i>@(isPt ? "Salvar Cartão" : "Save Card")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

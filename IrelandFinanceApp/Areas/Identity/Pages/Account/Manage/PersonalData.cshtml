@@ -1,0 +1,49 @@
+﻿@page
+@model Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Manage.Internal.PersonalDataModel
+@{
+    ViewData["Title"] = "Dados Pessoais";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h5 class="fw-bold text-dark mb-0">Privacidade & Dados Pessoais</h5>
+        <p class="text-muted small mb-0">Exporte ou solicite a exclusão de todos os dados vinculados ao seu perfil.</p>
+    </div>
+    <span class="badge px-3 py-2 rounded-pill bg-light text-secondary border">
+        <i class="bi bi-database me-1"></i> GDPR / LGPD
+    </span>
+</div>
+
+<p class="text-secondary small mt-3">
+    Sua conta contém informações pessoais financeiras cadastradas por você. Esta tela permite baixar uma cópia estruturada em JSON ou excluir permanentemente a conta.
+</p>
+
+<div class="row g-3 mt-2">
+    <div class="col-md-6">
+        <div class="card border rounded-3 p-4 h-100 d-flex flex-column justify-content-between">
+            <div>
+                <h6 class="fw-bold text-dark mb-1">Baixar Relatório de Dados</h6>
+                <p class="text-muted small mb-3">Gera um arquivo contendo todas as transações, metas e preferências da sua conta.</p>
+            </div>
+            <form id="download-data" asp-page="DownloadPersonalData" method="post">
+                <button class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-semibold" type="submit">
+                    <i class="bi bi-download me-1"></i> Exportar Dados
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card border border-danger border-opacity-25 rounded-3 p-4 h-100 d-flex flex-column justify-content-between bg-danger bg-opacity-10">
+            <div>
+                <h6 class="fw-bold text-danger mb-1">Zona de Perigo: Excluir Conta</h6>
+                <p class="text-muted small mb-3">Esta ação é irreversível. Todos os lançamentos e cartões serão apagados.</p>
+            </div>
+            <div>
+                <a id="delete" asp-page="DeletePersonalData" class="btn btn-danger btn-sm rounded-pill px-3 fw-semibold">
+                    <i class="bi bi-trash3 me-1"></i> Excluir Minha Conta
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using System.ComponentModel.DataAnnotations.Schema;
 using IrelandFinanceApp.Models.Enums;
 
 namespace IrelandFinanceApp.Models;
@@ -10,42 +10,43 @@ public class Transaction
 
     [Required(ErrorMessage = "A descrição é obrigatória.")]
     [StringLength(150)]
-    [Display(Name = "Description")]
     public string Description { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Informe o valor.")]
-    [Range(0.01, 99999999.99, ErrorMessage = "O valor deve ser maior que zero.")]
-    [Display(Name = "Amount (€)")]
+    [Required]
+    [Column(TypeName = "decimal(18,2)")]
+    [Range(0.01, 10000000)]
     public decimal Amount { get; set; }
 
     [Required]
-    [DataType(DataType.Date)]
-    [Display(Name = "Date")]
     public DateTime Date { get; set; } = DateTime.UtcNow;
 
     [Required]
-    [Display(Name = "Type")]
     public TransactionType Type { get; set; } = TransactionType.Expense;
 
-    // Categoria obrigatória
-    [Required(ErrorMessage = "Selecione uma categoria.")]
-    [Display(Name = "Category")]
-    public int CategoryId { get; set; }
+    // Forma de Pagamento
+    [Required]
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.DebitOrCash;
 
-    [ValidateNever]
+    // Vinculação com Cartão de Crédito (Anulável pois pode ser débito/dinheiro)
+    public int? CreditCardId { get; set; }
+    public CreditCard? CreditCard { get; set; }
+
+    // Competência da Fatura
+    public int? InvoiceMonth { get; set; }
+    public int? InvoiceYear { get; set; }
+    public bool IsSettled { get; set; } = false;
+    public bool IsInvoicePayment { get; set; } = false;
+
+    // Categoria
+    public int? CategoryId { get; set; }
     public Category? Category { get; set; }
 
-    // Vínculo opcional com a meta de reserva
-    [Display(Name = "Savings Goal (Optional)")]
+    // Meta de Poupança (Opcional)
     public int? SavingsGoalId { get; set; }
-
-    [ValidateNever]
     public SavingsGoal? SavingsGoal { get; set; }
 
-    // Identificação do Usuário (preenchido via Controller)
-    [ValidateNever]
+    // Dono do registro
+    [Required]
     public string UserId { get; set; } = string.Empty;
-
-    [ValidateNever]
     public ApplicationUser? User { get; set; }
 }

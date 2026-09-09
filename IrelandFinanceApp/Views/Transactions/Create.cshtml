@@ -9,12 +9,13 @@
 
     var currentUser = await UserManager.GetUserAsync(User);
     var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+    var hasCards = (bool)(ViewBag.HasCreditCards ?? false);
 }
 
 <div class="container py-4" style="max-width: 600px;">
-    <div class="card border-0 shadow-sm p-4 bg-white">
+    <div class="card border-0 shadow-sm p-4 bg-white" style="border-radius: 16px;">
         <div class="d-flex align-items-center gap-2 mb-4">
-            <a asp-action="Index" class="btn btn-sm btn-outline-secondary">
+            <a asp-action="Index" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;">
                 <i class="bi bi-arrow-left"></i>
             </a>
             <h4 class="fw-bold text-dark mb-0">
@@ -25,19 +26,62 @@
         <form asp-action="Create" method="post">
             <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
 
-            <!-- Tipo (Receita / Despesa) -->
+            <!-- Forma de Pagamento (Débito vs Cartão) -->
             <div class="mb-3">
+                <label class="form-label fw-semibold text-dark small">@(isPt ? "Forma de Pagamento" : "Payment Method")</label>
+                <div class="d-flex gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="@PaymentMethod.DebitOrCash" id="pmDebit" checked onchange="togglePaymentMethod()" />
+                        <label class="form-check-label fw-semibold text-dark" for="pmDebit" style="cursor: pointer;">
+                            <i class="bi bi-wallet2 text-success me-1"></i>@(isPt ? "Conta / Débito (Caixa)" : "Debit / Cashflow")
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="@PaymentMethod.CreditCard" id="pmCredit" onchange="togglePaymentMethod()" />
+                        <label class="form-check-label fw-semibold text-dark" for="pmCredit" style="cursor: pointer;">
+                            <i class="bi bi-credit-card-2-front text-primary me-1"></i>@(isPt ? "Cartão de Crédito (Fatura)" : "Credit Card (Invoice)")
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seletor do Cartão de Crédito (Aparece se Cartão for selecionado) -->
+            <div class="mb-3" id="cardSelectContainer" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label asp-for="CreditCardId" class="form-label fw-semibold text-dark small mb-0">@(isPt ? "Qual Cartão?" : "Select Card")</label>
+                    <a asp-controller="CreditCards" asp-action="Create" class="small text-decoration-none text-emerald">
+                        + @(isPt ? "Cadastrar Cartão" : "New Card")
+                    </a>
+                </div>
+                @if (hasCards)
+                {
+                    <select asp-for="CreditCardId" class="form-select" asp-items="ViewBag.CreditCardId">
+                        <option value="">@(isPt ? "-- Selecione o Cartão --" : "-- Select a Card --")</option>
+                    </select>
+                }
+                else
+                {
+                    <div class="alert alert-warning py-2 small mb-0">
+                        @(isPt ? "Você ainda não tem nenhum cartão cadastrado." : "You have no credit cards registered yet.")
+                        <a asp-controller="CreditCards" asp-action="Create" class="fw-bold text-dark">@(isPt ? "Cadastrar agora" : "Add one now")</a>
+                    </div>
+                }
+                <span asp-validation-for="CreditCardId" class="text-danger small"></span>
+            </div>
+
+            <!-- Tipo de Movimentação (Receita vs Despesa) -->
+            <div class="mb-3" id="transactionTypeContainer">
                 <label class="form-label fw-semibold text-dark small">@(isPt ? "Tipo de Movimentação" : "Transaction Type")</label>
                 <div class="d-flex gap-3">
                     <div class="form-check">
                         <input class="form-check-input" type="radio" asp-for="Type" value="@TransactionType.Expense" id="typeExpense" checked />
-                        <label class="form-check-label text-danger fw-semibold" for="typeExpense">
+                        <label class="form-check-label text-danger fw-semibold" for="typeExpense" style="cursor: pointer;">
                             <i class="bi bi-arrow-down-circle me-1"></i>@(isPt ? "Despesa" : "Expense")
                         </label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" asp-for="Type" value="@TransactionType.Income" id="typeIncome" />
-                        <label class="form-check-label text-success fw-semibold" for="typeIncome">
+                        <label class="form-check-label text-success fw-semibold" for="typeIncome" style="cursor: pointer;">
                             <i class="bi bi-arrow-up-circle me-1"></i>@(isPt ? "Receita" : "Income")
                         </label>
                     </div>
@@ -55,7 +99,7 @@
             <div class="mb-3">
                 <label asp-for="Amount" class="form-label fw-semibold text-dark small">@(isPt ? "Valor" : "Amount")</label>
                 <div class="input-group">
-                    <span class="input-group-text">@currencySymbol</span>
+                    <span class="input-group-text bg-light text-muted">@currencySymbol</span>
                     <input asp-for="Amount" type="number" step="0.01" min="0.01" class="form-control" placeholder="0.00" required />
                 </div>
                 <span asp-validation-for="Amount" class="text-danger small"></span>
@@ -65,7 +109,7 @@
             <div class="mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label asp-for="CategoryId" class="form-label fw-semibold text-dark small mb-0">@(isPt ? "Categoria" : "Category")</label>
-                    <a asp-controller="Categories" asp-action="Create" class="small text-decoration-none text-success">
+                    <a asp-controller="Categories" asp-action="Create" class="small text-decoration-none text-emerald">
                         + @(isPt ? "Nova Categoria" : "New Category")
                     </a>
                 </div>
@@ -75,7 +119,7 @@
                 <span asp-validation-for="CategoryId" class="text-danger small"></span>
             </div>
 
-            <!-- Data -->
+            <!-- Data da Compra -->
             <div class="mb-4">
                 <label asp-for="Date" class="form-label fw-semibold text-dark small">@(isPt ? "Data" : "Date")</label>
                 <input asp-for="Date" type="date" class="form-control" value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" required />
@@ -83,10 +127,10 @@
             </div>
 
             <div class="d-flex justify-content-between pt-2 border-top">
-                <a asp-action="Index" class="btn btn-outline-secondary">
+                <a asp-action="Index" class="btn btn-outline-secondary px-3">
                     @(isPt ? "Cancelar" : "Cancel")
                 </a>
-                <button type="submit" class="btn btn-emerald px-4">
+                <button type="submit" class="btn btn-emerald px-4 shadow-sm">
                     @(isPt ? "Salvar Lançamento" : "Save Transaction")
                 </button>
             </div>
@@ -96,4 +140,22 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePaymentMethod() {
+            const isCredit = document.getElementById('pmCredit').checked;
+            const cardSelect = document.getElementById('cardSelectContainer');
+            const typeContainer = document.getElementById('transactionTypeContainer');
+            const typeExpense = document.getElementById('typeExpense');
+
+            if (isCredit) {
+                cardSelect.style.display = 'block';
+                typeContainer.style.display = 'none';
+                typeExpense.checked = true; // Cartão de crédito é sempre despesa
+            } else {
+                cardSelect.style.display = 'none';
+                typeContainer.style.display = 'block';
+            }
+        }
+        document.addEventListener("DOMContentLoaded", togglePaymentMethod);
+    </script>
 }

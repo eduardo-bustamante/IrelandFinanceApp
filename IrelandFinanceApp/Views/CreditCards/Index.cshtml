@@ -1,0 +1,117 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using IrelandFinanceApp.Models.Enums
+@inject UserManager<ApplicationUser> UserManager
+@model IEnumerable<IrelandFinanceApp.Models.CreditCard>
+
+@{
+    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    ViewData["Title"] = isPt ? "Meus Cartões de Crédito" : "Credit Cards";
+    var currentUser = await UserManager.GetUserAsync(User);
+    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">
+                <i class="bi bi-credit-card-2-front text-emerald me-2"></i>
+                @(isPt ? "Cartões de Crédito" : "Credit Cards")
+            </h3>
+            <p class="text-muted small mb-0">
+                @(isPt ? "Acompanhe faturas futuras sem misturar com o saldo imediato da conta" : "Track upcoming bills without mixing with immediate cash balance")
+            </p>
+        </div>
+        <a asp-action="Create" class="btn btn-emerald px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i>@(isPt ? "Novo Cartão" : "New Card")
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card border-0 shadow-sm p-5 text-center bg-white" style="border-radius: 16px;">
+            <div class="d-inline-flex p-3 bg-light rounded-circle text-muted mx-auto mb-3">
+                <i class="bi bi-credit-card fs-1"></i>
+            </div>
+            <h5 class="fw-bold text-dark">@(isPt ? "Nenhum cartão cadastrado" : "No credit cards registered")</h5>
+            <p class="text-muted small mx-auto" style="max-width: 400px;">
+                @(isPt ? "Cadastre seu cartão para controlar faturas, dias de fechamento e limites." : "Add a card to manage upcoming invoice periods, closing dates, and limits.")
+            </p>
+            <div>
+                <a asp-action="Create" class="btn btn-emerald btn-sm px-4">
+                    @(isPt ? "Cadastrar Primeiro Cartão" : "Add First Card")
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var card in Model)
+            {
+                var openTransactions = card.Transactions.Where(t => !t.IsSettled && t.PaymentMethod == PaymentMethod.CreditCard).ToList();
+                var committed = openTransactions.Sum(t => t.Amount);
+                var available = Math.Max(0, card.CreditLimit - committed);
+                var percentUsed = card.CreditLimit > 0 ? (committed / card.CreditLimit) * 100 : 0;
+
+                <div class="col-md-6 col-lg-4">
+                    <div class="card border-0 shadow-sm h-100 bg-white" style="border-radius: 16px; overflow: hidden;">
+                        <!-- Cartão Visual Estilizado -->
+                        <div class="p-4 text-white position-relative" style="background: linear-gradient(135deg, @card.ColorHex, #064e3b);">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="fw-bold fs-5 tracking-wide">@card.Name</span>
+                                <i class="bi bi-sim fs-3 opacity-75"></i>
+                            </div>
+                            <div class="small opacity-75 mb-1">@(isPt ? "Limite Total" : "Total Limit")</div>
+                            <div class="fs-4 fw-bold mb-3">@currencySymbol @card.CreditLimit.ToString("N2")</div>
+                            <div class="d-flex justify-content-between small opacity-75 border-top border-white border-opacity-25 pt-2">
+                                <span>@(isPt ? "Fecha dia:" : "Closes:") @card.ClosingDay</span>
+                                <span>@(isPt ? "Vence dia:" : "Due:") @card.DueDay</span>
+                            </div>
+                        </div>
+
+                        <!-- Detalhes do Limite -->
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">@(isPt ? "Faturas Abertas:" : "Open Invoices:")</span>
+                                <span class="fw-bold text-danger">@currencySymbol @committed.ToString("N2")</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-2">
+                                <span class="text-muted">@(isPt ? "Disponível:" : "Available:")</span>
+                                <span class="fw-semibold text-emerald">@currencySymbol @available.ToString("N2")</span>
+                            </div>
+
+                            <div class="progress mb-3" style="height: 6px;">
+                                <div class="progress-bar @(percentUsed > 80 ? "bg-danger" : percentUsed > 50 ? "bg-warning" : "bg-emerald")"
+                                     style="width: @Math.Min(percentUsed, 100)%"></div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a asp-action="Details" asp-route-id="@card.Id" class="btn btn-sm btn-outline-success flex-grow-1">
+                                    <i class="bi bi-receipt me-1"></i>@(isPt ? "Ver Faturas" : "View Invoices")
+                                </a>
+                                <a asp-action="Edit" asp-route-id="@card.Id" class="btn btn-sm btn-light text-muted border">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

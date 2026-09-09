@@ -6,191 +6,143 @@
 @{
     var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
     ViewData["Title"] = isPt ? "Lançamentos" : "Transactions";
-
     var currentUser = await UserManager.GetUserAsync(User);
     var currencySymbol = currentUser?.CurrencySymbol ?? "€";
-
-    var hasActiveFilters = !string.IsNullOrWhiteSpace(Model.SearchTerm) ||
-                           Model.StartDate.HasValue ||
-                           Model.EndDate.HasValue ||
-                           Model.CategoryId.HasValue ||
-                           Model.Type.HasValue;
 }
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
-        <i class="bi bi-check-circle-fill me-2"></i>
-        @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="container py-4">
+    <!-- Cabeçalho -->
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0">@(isPt ? "Lançamentos Financeiros" : "Transactions")</h3>
+            <p class="text-muted small mb-0">@(isPt ? "Histórico de despesas em caixa e compras no cartão" : "Record of cashflow expenses and credit card purchases")</p>
+        </div>
+        <a asp-action="Create" class="btn btn-emerald px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i>@(isPt ? "Novo Lançamento" : "New Transaction")
+        </a>
     </div>
-}
 
-<!-- Top Header -->
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-    <div>
-        <h3 class="fw-bold text-dark mb-1">@(isPt ? "Histórico de Transações" : "Transaction History")</h3>
-        <p class="text-muted small mb-0">@(isPt ? "Consulte, filtre e analise todas as suas movimentações financeiras." : "Search, filter, and inspect your income and expense records.")</p>
-    </div>
-    <a asp-action="Create" class="btn btn-emerald px-3">
-        <i class="bi bi-plus-lg me-1"></i> @(isPt ? "Novo Lançamento" : "New Transaction")
-    </a>
-</div>
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
-<!-- Card de Filtros Avançados -->
-<div class="card border-0 shadow-sm bg-white mb-4">
-    <div class="card-body p-4">
-        <form method="get" asp-action="Index">
-            <div class="row g-3 align-items-end">
-                <!-- Busca por Texto -->
-                <div class="col-12 col-md-4">
-                    <label class="form-label small fw-semibold text-muted">@(isPt ? "Buscar Descrição" : "Search Description")</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="SearchTerm" value="@Model.SearchTerm" class="form-control border-start-0" placeholder="@(isPt ? "Ex: Mercado, Uber, Salário..." : "e.g. Groceries, Uber, Salary...")" />
-                    </div>
-                </div>
-
-                <!-- Categoria -->
-                <div class="col-12 col-sm-6 col-md-2">
-                    <label class="form-label small fw-semibold text-muted">@(isPt ? "Categoria" : "Category")</label>
-                    <select name="CategoryId" class="form-select form-select-sm" asp-items="ViewBag.Categories">
-                        <option value="">@(isPt ? "-- Todas --" : "-- All --")</option>
-                    </select>
-                </div>
-
-                <!-- Tipo -->
-                <div class="col-12 col-sm-6 col-md-2">
-                    <label class="form-label small fw-semibold text-muted">@(isPt ? "Tipo" : "Type")</label>
-                    <select name="Type" class="form-select form-select-sm">
-                        <option value="">@(isPt ? "-- Todos --" : "-- All --")</option>
-                        <option value="@TransactionType.Expense" selected="@(Model.Type == TransactionType.Expense)">@(isPt ? "Despesa" : "Expense")</option>
-                        <option value="@TransactionType.Income" selected="@(Model.Type == TransactionType.Income)">@(isPt ? "Receita" : "Income")</option>
-                    </select>
-                </div>
-
-                <!-- Data Início -->
-                <div class="col-6 col-md-2">
-                    <label class="form-label small fw-semibold text-muted">@(isPt ? "Data Início" : "From")</label>
-                    <input type="date" name="StartDate" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
-                </div>
-
-                <!-- Data Fim -->
-                <div class="col-6 col-md-2">
-                    <label class="form-label small fw-semibold text-muted">@(isPt ? "Data Fim" : "To")</label>
-                    <input type="date" name="EndDate" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" />
-                </div>
-
-                <!-- Botões de Ação -->
-                <div class="col-12 d-flex justify-content-end gap-2 pt-2">
-                    @if (hasActiveFilters)
-                    {
-                        <a asp-action="Index" class="btn btn-sm btn-outline-secondary px-3">
-                            <i class="bi bi-x-circle me-1"></i>@(isPt ? "Limpar Filtros" : "Clear Filters")
-                        </a>
-                    }
-                    <button type="submit" class="btn btn-sm btn-emerald px-4">
-                        <i class="bi bi-funnel me-1"></i>@(isPt ? "Filtrar" : "Apply Filters")
-                    </button>
-                </div>
+    <!-- Barra de Filtros -->
+    <div class="card border-0 shadow-sm p-3 mb-4 bg-white" style="border-radius: 16px;">
+        <form asp-action="Index" method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">@(isPt ? "Buscar" : "Search")</label>
+                <input type="text" name="SearchTerm" class="form-control form-control-sm" placeholder="@(isPt ? "Ex: Mercado, Aluguel..." : "e.g. Rent, Grocery...")" value="@Model.SearchTerm" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small text-muted mb-1">@(isPt ? "Data Início" : "Start Date")</label>
+                <input type="date" name="StartDate" class="form-control form-control-sm" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small text-muted mb-1">@(isPt ? "Data Fim" : "End Date")</label>
+                <input type="date" name="EndDate" class="form-control form-control-sm" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">@(isPt ? "Categoria" : "Category")</label>
+                <select name="CategoryId" class="form-select form-select-sm" asp-items="ViewBag.Categories">
+                    <option value="">@(isPt ? "Todas as Categorias" : "All Categories")</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-emerald flex-grow-1">
+                    <i class="bi bi-filter me-1"></i>@(isPt ? "Filtrar" : "Filter")
+                </button>
+                <a asp-action="Index" class="btn btn-sm btn-light border text-muted">
+                    <i class="bi bi-x-lg"></i>
+                </a>
             </div>
         </form>
     </div>
-</div>
 
-<!-- Resumo Dinâmico do Resultado Filtrado -->
-<div class="row g-3 mb-4">
-    <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm p-3 bg-white">
-            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Entradas Filtradas" : "Filtered Income")</span>
-            <h5 class="fw-bold text-success mt-1 mb-0">+ @currencySymbol @Model.FilteredIncome.ToString("N2")</h5>
-        </div>
-    </div>
-    <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm p-3 bg-white">
-            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Despesas Filtradas" : "Filtered Expense")</span>
-            <h5 class="fw-bold text-danger mt-1 mb-0">- @currencySymbol @Model.FilteredExpense.ToString("N2")</h5>
-        </div>
-    </div>
-    <div class="col-12 col-md-4">
-        <div class="card border-0 shadow-sm p-3 bg-white">
-            <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Balanço do Filtro" : "Filtered Balance")</span>
-            <h5 class="fw-bold @(Model.FilteredNet >= 0 ? "text-primary" : "text-danger") mt-1 mb-0">
-                @currencySymbol @Model.FilteredNet.ToString("N2")
-            </h5>
-        </div>
-    </div>
-</div>
+    <!-- Tabela de Lançamentos -->
+    <div class="card border-0 shadow-sm bg-white" style="border-radius: 16px; overflow: hidden;">
+        @if (!Model.Transactions.Any())
+        {
+            <div class="p-5 text-center text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                @(isPt ? "Nenhum lançamento encontrado para os filtros selecionados." : "No transactions found.")
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr style="font-size: 0.8rem; text-transform: uppercase;">
+                            <th class="ps-4">@(isPt ? "Data" : "Date")</th>
+                            <th>@(isPt ? "Descrição" : "Description")</th>
+                            <th>@(isPt ? "Categoria" : "Category")</th>
+                            <th>@(isPt ? "Pagamento" : "Method")</th>
+                            <th class="text-end">@(isPt ? "Valor" : "Amount")</th>
+                            <th class="text-end pe-4">@(isPt ? "Ações" : "Actions")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Transactions)
+                        {
+                            var isExpense = item.Type == TransactionType.Expense;
+                            var isCredit = item.PaymentMethod == PaymentMethod.CreditCard;
 
-<!-- Tabela de Lançamentos -->
-<div class="card border-0 shadow-sm bg-white">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th class="ps-4 py-3">@(isPt ? "Data" : "Date")</th>
-                    <th class="py-3">@(isPt ? "Descrição" : "Description")</th>
-                    <th class="py-3">@(isPt ? "Categoria" : "Category")</th>
-                    <th class="py-3 text-end">@(isPt ? "Valor" : "Amount")</th>
-                    <th class="pe-4 py-3 text-center" style="width: 120px;">@(isPt ? "Ações" : "Actions")</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!Model.Transactions.Any())
-                {
-                    <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
-                            @(isPt ? "Nenhum lançamento encontrado com os filtros aplicados." : "No transactions match your search criteria.")
-                        </td>
-                    </tr>
-                }
-                @foreach (var item in Model.Transactions)
-                {
-                    var isIncome = item.Type == TransactionType.Income;
-                    <tr>
-                        <td class="ps-4 text-muted small">
-                            @item.Date.ToString("dd/MM/yyyy")
-                        </td>
-                        <td class="fw-semibold text-dark">
-                            @item.Description
-                            @if (item.SavingsGoalId.HasValue)
-                            {
-                                <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.7rem;">
-                                    <i class="bi bi-piggy-bank me-1"></i>@(isPt ? "Meta" : "Goal")
-                                </span>
-                            }
-                        </td>
-                        <td>
-                            @if (item.Category != null)
-                            {
-                                <span class="badge bg-light text-dark border">
-                                    @item.Category.Name
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="text-muted small">-</span>
-                            }
-                        </td>
-                        <td class="text-end fw-bold @(isIncome ? "text-success" : "text-danger")">
-                            @(isIncome ? "+" : "-") @currencySymbol @item.Amount.ToString("N2")
-                        </td>
-                        <td class="pe-4 text-center">
-                            <div class="d-flex justify-content-center gap-2">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-secondary border-0 p-1" title="@(isPt ? "Editar" : "Edit")">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                                <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('@(isPt ? $"Excluir \"{item.Description}\"?" : $"Delete \"{item.Description}\"?")');">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0 p-1" title="@(isPt ? "Excluir" : "Delete")">
-                                        <i class="bi bi-trash3-fill"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                            <tr>
+                                <td class="ps-4 text-muted small">@item.Date.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <div class="fw-semibold text-dark">@item.Description</div>
+                                    @if (item.IsInvoicePayment)
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border border-primary" style="font-size: 0.68rem;">
+                                            <i class="bi bi-check-all me-1"></i>@(isPt ? "Quitação de Fatura" : "Invoice Payoff")
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        @(item.Category?.Name ?? "-")
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (isCredit)
+                                    {
+                                        <span class="badge bg-light text-primary border border-primary-subtle">
+                                            <i class="bi bi-credit-card-2-front me-1"></i>
+                                            @(item.CreditCard?.Name ?? "Cartão") 
+                                            (@item.InvoiceMonth:D2/@item.InvoiceYear)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-success border border-success-subtle">
+                                            <i class="bi bi-wallet2 me-1"></i>@(isPt ? "Caixa / Débito" : "Cash / Debit")
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end fw-bold @(isExpense ? "text-danger" : "text-success")">
+                                    @(isExpense ? "-" : "+") @currencySymbol @item.Amount.ToString("N2")
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="d-inline-flex gap-1">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-light text-muted border py-1 px-2">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline" onsubmit="return confirm('@(isPt ? "Tem certeza que deseja excluir?" : "Are you sure you want to delete?")');">
+                                            <button type="submit" class="btn btn-sm btn-light text-danger border py-1 px-2">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 </div>

@@ -1,0 +1,83 @@
+﻿@{
+    Layout = "/Views/Shared/_Layout.cshtml";
+}
+
+<style>
+    /* Força estilização limpa e moderna independente do tema global */
+    .manage-wrapper {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+    }
+
+    .manage-header {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .manage-nav-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .manage-content-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        min-height: 480px;
+    }
+
+    .manage-title {
+        color: #0f172a !important;
+        font-weight: 700;
+    }
+
+    .manage-subtitle {
+        color: #64748b !important;
+    }
+</style>
+
+<div class="manage-wrapper">
+    <!-- Cabeçalho com fundo branco contrastado -->
+    <div class="manage-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h3 class="manage-title mb-1 fs-4">Configurações da Conta</h3>
+            <p class="manage-subtitle mb-0 small">Gerencie dados cadastrais, credenciais de segurança e preferências de acesso.</p>
+        </div>
+        <div>
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3 py-2 btn-sm fw-semibold shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Grid Principal com proporção definida -->
+    <div class="row g-4 align-items-start">
+        <!-- Menu Lateral -->
+        <div class="col-12 col-md-4 col-lg-3">
+            <div class="manage-nav-card">
+                <partial name="_ManageNav" />
+            </div>
+        </div>
+
+        <!-- Conteúdo do Formulário -->
+        <div class="col-12 col-md-8 col-lg-9">
+            <div class="manage-content-card">
+                @RenderBody()
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @RenderSection("Scripts", required: false)
+}

@@ -1,11 +1,13 @@
-using IrelandFinanceApp.Data;
-using IrelandFinanceApp.Models.Enums;
-using IrelandFinanceApp.Models.ViewModels;
+using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
+using IrelandFinanceApp.Data;
+using IrelandFinanceApp.Models;
+using IrelandFinanceApp.Models.ViewModels;
+using IrelandFinanceApp.Models.Enums;
 
 namespace IrelandFinanceApp.Controllers;
 
@@ -21,113 +23,167 @@ public class HomeController : Controller
 
     private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
+    // ==========================================
+    // 1. DASHBOARD PRINCIPAL
+    // ==========================================
     public async Task<IActionResult> Index(int? month, int? year)
     {
         var now = DateTime.UtcNow;
-        var selectedDate = new DateTime(year ?? now.Year, month ?? now.Month, 1);
-        var nextMonthDate = selectedDate.AddMonths(1);
+        var selectedMonth = month ?? now.Month;
+        var selectedYear = year ?? now.Year;
 
-        // Lançamentos do mês selecionado
-        var monthTransactions = await _context.Transactions
+        var selectedDate = new DateTime(selectedYear, selectedMonth, 1, 0, 0, 0, DateTimeKind.Utc);
+        var startOfMonth = selectedDate;
+        var endOfMonth = selectedDate.AddMonths(1).AddTicks(-1);
+
+        // 1. Carrega todas as transações do usuário com categorias e cartões
+        var allTransactions = await _context.Transactions
             .Include(t => t.Category)
-            .Where(t => t.UserId == CurrentUserId && t.Date >= selectedDate && t.Date < nextMonthDate)
+            .Include(t => t.CreditCard)
+            .Where(t => t.UserId == CurrentUserId)
             .ToListAsync();
 
-        var income = monthTransactions
+        // 2. Fluxo de Caixa Real (Apenas saídas imediatas e pagamentos de fatura afetam o saldo bancário)
+        var cashTransactions = allTransactions
+            .Where(t => t.PaymentMethod == PaymentMethod.DebitOrCash)
+            .ToList();
+
+        var totalIncomeAllTime = cashTransactions
             .Where(t => t.Type == TransactionType.Income)
             .Sum(t => t.Amount);
 
-        var expenses = monthTransactions
+        var totalExpenseAllTime = cashTransactions
             .Where(t => t.Type == TransactionType.Expense)
             .Sum(t => t.Amount);
 
-        // Métricas de Burn Rate e Projeção
-        int daysInMonth = DateTime.DaysInMonth(selectedDate.Year, selectedDate.Month);
-        int daysElapsed = (selectedDate.Year == now.Year && selectedDate.Month == now.Month)
+        var currentBalance = totalIncomeAllTime - totalExpenseAllTime;
+
+        // Movimentações no Caixa do Mês Selecionado
+        var monthlyCashTransactions = cashTransactions
+            .Where(t => t.Date >= startOfMonth && t.Date <= endOfMonth)
+            .ToList();
+
+        var monthlyIncome = monthlyCashTransactions
+            .Where(t => t.Type == TransactionType.Income)
+            .Sum(t => t.Amount);
+
+        var monthlyExpense = monthlyCashTransactions
+            .Where(t => t.Type == TransactionType.Expense)
+            .Sum(t => t.Amount);
+
+        // 3. Cartões de Crédito & Faturas
+        var creditCards = await _context.CreditCards
+            .Where(c => c.UserId == CurrentUserId)
+            .Include(c => c.Transactions)
+            .ToListAsync();
+
+        var totalCommittedCredit = allTransactions
+            .Where(t => t.PaymentMethod == PaymentMethod.CreditCard && !t.IsSettled)
+            .Sum(t => t.Amount);
+
+        var currentMonthInvoiceTotal = allTransactions
+            .Where(t => t.PaymentMethod == PaymentMethod.CreditCard &&
+                        t.InvoiceMonth == selectedMonth &&
+                        t.InvoiceYear == selectedYear)
+            .Sum(t => t.Amount);
+
+        // 4. Metas de Poupança & Reserva de Emergência
+        var savingsGoals = await _context.SavingsGoals
+            .Where(s => s.UserId == CurrentUserId)
+            .ToListAsync();
+
+        var totalSavings = savingsGoals.Sum(s => s.CurrentAmount);
+
+        // 5. Burn Rate & Projeção de Gastos
+        var daysInMonth = DateTime.DaysInMonth(selectedYear, selectedMonth);
+        int daysPassed = (selectedMonth == now.Month && selectedYear == now.Year)
             ? Math.Max(1, now.Day)
             : daysInMonth;
 
-        decimal dailyBurn = daysElapsed > 0 ? expenses / daysElapsed : 0;
-        decimal projectedExpense = dailyBurn * daysInMonth;
+        var dailyBurn = monthlyExpense > 0 ? Math.Round(monthlyExpense / daysPassed, 2) : 0m;
+        var projectedExpense = Math.Round(dailyBurn * daysInMonth, 2);
 
-        // Distribuição por categoria
-        var expensesByCategory = monthTransactions
-            .Where(t => t.Type == TransactionType.Expense && t.Category != null)
-            .GroupBy(t => t.Category!.Name)
-            .Select(g => new CategoryExpenseSummary
+        // Gastos essenciais do mês para estimativa de Runway
+        var essentialExpenses = monthlyCashTransactions
+            .Where(t => t.Type == TransactionType.Expense && t.Category != null && t.Category.IsEssential)
+            .Sum(t => t.Amount);
+
+        var baseForRunway = essentialExpenses > 0 ? essentialExpenses : (monthlyExpense > 0 ? monthlyExpense : 0m);
+        var monthsCovered = baseForRunway > 0 ? Math.Round(totalSavings / baseForRunway, 1) : 0m;
+
+        // 6. Despesas por Categoria no Mês (Soma compras de débito e cartão, sem duplicar a liquidação da fatura)
+        var monthlyExpensesGrouped = allTransactions
+            .Where(t => t.Type == TransactionType.Expense &&
+                        !t.IsInvoicePayment &&
+                        t.Date >= startOfMonth && t.Date <= endOfMonth)
+            .GroupBy(t => t.Category?.Name ?? "Sem Categoria")
+            .Select(g => new
             {
-                CategoryName = g.Key,
-                TotalAmount = g.Sum(t => t.Amount)
+                Name = g.Key,
+                Amount = g.Sum(t => t.Amount)
             })
-            .OrderByDescending(g => g.TotalAmount)
             .ToList();
 
-        // Metas e Runway
-        var goals = await _context.SavingsGoals
-            .Where(g => g.UserId == CurrentUserId)
-            .ToListAsync();
+        var totalCategoryExpenses = monthlyExpensesGrouped.Sum(x => x.Amount);
 
-        var totalSaved = goals.Sum(g => g.CurrentAmount);
+        var expensesByCategory = monthlyExpensesGrouped
+            .Select(g => new CategoryExpenseSummaryViewModel
+            {
+                CategoryName = g.Name,
+                TotalAmount = g.Amount,
+                Percentage = totalCategoryExpenses > 0 ? Math.Round((g.Amount / totalCategoryExpenses) * 100, 1) : 0
+            })
+            .OrderByDescending(c => c.TotalAmount)
+            .ToList();
 
-        var essentialMonthlyCost = await _context.Categories
-            .Where(c => c.UserId == CurrentUserId && c.IsEssential && c.MonthlyBudgetLimit.HasValue)
-            .SumAsync(c => c.MonthlyBudgetLimit.Value);
-
-        if (essentialMonthlyCost == 0)
-        {
-            // Fallback para os gastos essenciais realizados no mês
-            essentialMonthlyCost = monthTransactions
-                .Where(t => t.Type == TransactionType.Expense && t.Category != null && t.Category.IsEssential)
-                .Sum(t => t.Amount);
-        }
-
-        var monthsCovered = essentialMonthlyCost > 0
-            ? Math.Round(totalSaved / essentialMonthlyCost, 1)
-            : (totalSaved > 0 ? 99 : 0);
-
-        // Histórico dos últimos 6 meses (para o gráfico de evolução)
-        var sixMonthsAgo = selectedDate.AddMonths(-5);
-        var historicalTxs = await _context.Transactions
-            .Where(t => t.UserId == CurrentUserId && t.Date >= sixMonthsAgo && t.Date < nextMonthDate)
-            .ToListAsync();
-
-        var cashflowHistory = new List<MonthlyCashflowHistory>();
+        // 7. Histórico dos últimos 6 meses para os gráficos (CashflowHistory)
+        var cashflowHistory = new List<CashflowMonthSummaryViewModel>();
         for (int i = 5; i >= 0; i--)
         {
-            var targetMonth = selectedDate.AddMonths(-i);
-            var nextTarget = targetMonth.AddMonths(1);
+            var targetDate = selectedDate.AddMonths(-i);
+            var startMonthTarget = new DateTime(targetDate.Year, targetDate.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endMonthTarget = startMonthTarget.AddMonths(1).AddTicks(-1);
 
-            var txs = historicalTxs.Where(t => t.Date >= targetMonth && t.Date < nextTarget).ToList();
-            var mIncome = txs.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
-            var mExpense = txs.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
+            var historyTxs = cashTransactions
+                .Where(t => t.Date >= startMonthTarget && t.Date <= endMonthTarget)
+                .ToList();
 
-            cashflowHistory.Add(new MonthlyCashflowHistory
+            cashflowHistory.Add(new CashflowMonthSummaryViewModel
             {
-                MonthLabel = targetMonth.ToString("MMM/yy", System.Globalization.CultureInfo.CurrentUICulture),
-                Income = mIncome,
-                Expense = mExpense,
-                NetSavings = mIncome - mExpense
+                MonthLabel = startMonthTarget.ToString("MMM/yy", System.Globalization.CultureInfo.CurrentUICulture),
+                Income = historyTxs.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount),
+                Expense = historyTxs.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount)
             });
         }
 
-        var model = new DashboardViewModel
+        // 8. Montagem do ViewModel completo
+        var viewModel = new DashboardViewModel
         {
             SelectedDate = selectedDate,
-            MonthlyIncome = income,
-            MonthlyExpenses = expenses,
+            CurrentBalance = currentBalance,
+            MonthlyIncome = monthlyIncome,
+            MonthlyExpense = monthlyExpense,
             DailyBurnRate = dailyBurn,
             ProjectedEndOfMonthExpense = projectedExpense,
-            EssentialMonthlyCost = essentialMonthlyCost,
+            TotalSavings = totalSavings,
+            EssentialMonthlyCost = essentialExpenses,
             MonthsCovered = monthsCovered,
+            TotalCommittedCredit = totalCommittedCredit,
+            CurrentMonthInvoiceTotal = currentMonthInvoiceTotal,
+            CreditCards = creditCards,
+            SavingsGoals = savingsGoals,
+            Goals = savingsGoals,
             ExpensesByCategory = expensesByCategory,
-            Goals = goals,
             CashflowHistory = cashflowHistory,
-            RecentTransactions = monthTransactions.OrderByDescending(t => t.Date).Take(7).ToList()
+            RecentTransactions = allTransactions.OrderByDescending(t => t.Date).Take(6).ToList()
         };
 
-        return View(model);
+        return View(viewModel);
     }
 
+    // ==========================================
+    // 2. ALTERNADOR DE IDIOMA (EN / PT)
+    // ==========================================
     [HttpPost]
     [AllowAnonymous]
     public IActionResult SetCulture(string culture, string returnUrl)
@@ -138,16 +194,28 @@ public class HomeController : Controller
             new CookieOptions
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
-                IsEssential = true,
-                SameSite = SameSiteMode.Lax
+                SameSite = SameSiteMode.Lax,
+                HttpOnly = true,
+                Secure = Request.IsHttps
             }
         );
 
-        if (Url.IsLocalUrl(returnUrl))
-        {
-            return LocalRedirect(returnUrl);
-        }
+        return LocalRedirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+    }
 
-        return RedirectToAction("Index", "Home");
+    // ==========================================
+    // 3. PÁGINAS AUXILIARES
+    // ==========================================
+    [AllowAnonymous]
+    public IActionResult Privacy()
+    {
+        return View();
+    }
+
+    [AllowAnonymous]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error()
+    {
+        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 }

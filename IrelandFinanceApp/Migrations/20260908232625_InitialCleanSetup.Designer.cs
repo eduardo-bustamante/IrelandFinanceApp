@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IrelandFinanceApp.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260907201856_AddMonthlyBudgetLimitToCategory")]
-    partial class AddMonthlyBudgetLimitToCategory
+    [Migration("20260908232625_InitialCleanSetup")]
+    partial class InitialCleanSetup
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -39,6 +39,14 @@ namespace IrelandFinanceApp.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("CultureCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -77,6 +85,10 @@ namespace IrelandFinanceApp.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -105,10 +117,14 @@ namespace IrelandFinanceApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<bool>("IsEssential")
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("MonthlyBudgetLimit")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Name")
@@ -122,9 +138,50 @@ namespace IrelandFinanceApp.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApplicationUserId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("Categories");
+                });
+
+            modelBuilder.Entity("IrelandFinanceApp.Models.CreditCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClosingDay")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ColorHex")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<decimal>("CreditLimit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CreditCards");
                 });
 
             modelBuilder.Entity("IrelandFinanceApp.Models.SavingsGoal", b =>
@@ -135,25 +192,32 @@ namespace IrelandFinanceApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<decimal>("CurrentAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<decimal>("TargetAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("TargetDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.HasIndex("UserId");
 
@@ -169,9 +233,16 @@ namespace IrelandFinanceApp.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("CategoryId")
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreditCardId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("Date")
@@ -181,6 +252,21 @@ namespace IrelandFinanceApp.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<int?>("InvoiceMonth")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InvoiceYear")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsInvoicePayment")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSettled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
 
                     b.Property<int?>("SavingsGoalId")
                         .HasColumnType("int");
@@ -194,7 +280,11 @@ namespace IrelandFinanceApp.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApplicationUserId");
+
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("CreditCardId");
 
                     b.HasIndex("SavingsGoalId");
 
@@ -342,8 +432,23 @@ namespace IrelandFinanceApp.Migrations
 
             modelBuilder.Entity("IrelandFinanceApp.Models.Category", b =>
                 {
-                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", null)
                         .WithMany("Categories")
+                        .HasForeignKey("ApplicationUserId");
+
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IrelandFinanceApp.Models.CreditCard", b =>
+                {
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -353,8 +458,12 @@ namespace IrelandFinanceApp.Migrations
 
             modelBuilder.Entity("IrelandFinanceApp.Models.SavingsGoal", b =>
                 {
-                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", null)
                         .WithMany("SavingsGoals")
+                        .HasForeignKey("ApplicationUserId");
+
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -364,24 +473,34 @@ namespace IrelandFinanceApp.Migrations
 
             modelBuilder.Entity("IrelandFinanceApp.Models.Transaction", b =>
                 {
+                    b.HasOne("IrelandFinanceApp.Models.ApplicationUser", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("ApplicationUserId");
+
                     b.HasOne("IrelandFinanceApp.Models.Category", "Category")
                         .WithMany("Transactions")
                         .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("IrelandFinanceApp.Models.CreditCard", "CreditCard")
+                        .WithMany("Transactions")
+                        .HasForeignKey("CreditCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("IrelandFinanceApp.Models.SavingsGoal", "SavingsGoal")
-                        .WithMany("Contributions")
+                        .WithMany("Transactions")
                         .HasForeignKey("SavingsGoalId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("IrelandFinanceApp.Models.ApplicationUser", "User")
-                        .WithMany("Transactions")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Category");
+
+                    b.Navigation("CreditCard");
 
                     b.Navigation("SavingsGoal");
 
@@ -453,9 +572,14 @@ namespace IrelandFinanceApp.Migrations
                     b.Navigation("Transactions");
                 });
 
+            modelBuilder.Entity("IrelandFinanceApp.Models.CreditCard", b =>
+                {
+                    b.Navigation("Transactions");
+                });
+
             modelBuilder.Entity("IrelandFinanceApp.Models.SavingsGoal", b =>
                 {
-                    b.Navigation("Contributions");
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }
