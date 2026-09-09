@@ -65,11 +65,10 @@
                 @currencySymbol @Model.MonthlyBalance.ToString("N2")
             </h4>
             <span class="text-muted small mt-1">
-                @(isPt ? "Taxa de Poupança:" : "Savings Rate:") <strong class="text-dark">@Model.SavingsRate%</strong>
+                @(isPt ? "Taxa de Poupança:" : "Savings Rate:") <strong class="text-dark">@Model.SavingsRate.ToString("0.0")%</strong>
             </span>
         </div>
-    </div>
-    <div class="col-12 col-md-3">
+    </div>    <div class="col-12 col-md-3">
         <div class="card border-0 shadow-sm p-3 bg-white h-100">
             <span class="text-muted small fw-semibold text-uppercase">@(isPt ? "Média Diária (Burn Rate)" : "Daily Burn Rate")</span>
             <h4 class="fw-bold text-dark mt-1 mb-0">@currencySymbol @Model.DailyBurnRate.ToString("N2")<span class="fs-6 fw-normal text-muted">/dia</span></h4>

@@ -1,55 +1,106 @@
-﻿@using Microsoft.AspNetCore.Identity
-@inject UserManager<ApplicationUser> UserManager
+﻿@model IrelandFinanceApp.Models.SavingsGoal
+@using System.Globalization
 
 @{
-    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
-    ViewData["Title"] = isPt ? "Guardar Dinheiro" : "Deposit into Goal";
+    var isPt = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
+    string T(string pt, string en) => isPt ? pt : en;
 
-    var currentUser = await UserManager.GetUserAsync(User);
-    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+    ViewData["Title"] = T("Realizar Aporte", "Make a Deposit");
 }
 
-<div class="container py-4" style="max-width: 500px;">
-    <div class="card border-0 shadow-sm p-4 bg-white">
-        <div class="text-center mb-4">
-            <div class="p-3 bg-success-subtle text-success rounded-circle d-inline-flex mb-2">
-                <i class="bi bi-piggy-bank fs-2"></i>
+<div class="container py-4" style="max-width: 520px;">
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+
+        <!-- Cabeçalho -->
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <span class="p-2 rounded-3" style="background: rgba(16, 185, 129, 0.12); color: #059669;">
+                <i class="bi bi-piggy-bank fs-4"></i>
+            </span>
+            <div>
+                <h4 class="fw-bold text-dark mb-0">@T("Aportar na Meta", "Deposit into Goal")</h4>
+                <p class="text-muted small mb-0">@Model.Name</p>
             </div>
-            <h4 class="fw-bold text-dark mb-1">
-                @(isPt ? "Aporte Financeiro" : "Make a Deposit")
-            </h4>
-            <p class="text-muted small mb-0">
-                @(isPt ? "Destinar fundos para:" : "Contributing towards:") 
-                <span class="fw-bold text-dark">@ViewBag.GoalTitle</span>
-            </p>
         </div>
 
-        <form asp-action="Deposit" asp-route-id="@ViewBag.GoalId" method="post">
-            <div class="mb-3">
-                <label class="form-label fw-semibold text-dark">
-                    @(isPt ? "Valor do Aporte" : "Deposit Amount")
+        <p class="text-muted small mb-3">
+            @T("Adicione fundos para acelerar o progresso do seu objetivo financeiro.", "Add funds to accelerate your financial target progress.")
+        </p>
+
+        <!-- Resumo Financeiro da Meta -->
+        <div class="bg-light p-3 rounded-3 mb-4 border">
+            <div class="d-flex justify-content-between align-items-center small mb-2">
+                <span class="text-secondary">@T("Acumulado Atual:", "Current Saved:")</span>
+                <span class="fw-bold text-dark fs-6">@Model.CurrentAmount.ToString("C")</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center small mb-2">
+                <span class="text-secondary">@T("Valor Alvo:", "Target Goal:")</span>
+                <span class="fw-bold text-secondary">@Model.TargetAmount.ToString("C")</span>
+            </div>
+
+            @{
+                var target = Model.TargetAmount > 0 ? Model.TargetAmount : 1;
+                var progress = Math.Min(100, Math.Round((Model.CurrentAmount / target) * 100, 1));
+            }
+
+            <div class="mt-2">
+                <div class="d-flex justify-content-between small text-muted mb-1" style="font-size: 0.75rem;">
+                    <span>@T("Progresso Atual", "Current Progress")</span>
+                    <span class="fw-semibold" style="color: #059669;">@progress.ToString("0.0", CultureInfo.InvariantCulture)%</span>
+                </div>
+                <div class="progress" style="height: 6px; border-radius: 8px; background-color: #e2e8f0;">
+                    <div class="progress-bar"
+                         role="progressbar"
+                         style="width: @progress.ToString("0.0", CultureInfo.InvariantCulture)%; background-color: #10b981;"
+                         aria-valuenow="@progress"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulário de Depósito -->
+        <form asp-action="Deposit" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+
+            <div class="mb-4">
+                <label class="form-label small fw-semibold text-secondary">
+                    @T("Valor do Aporte", "Deposit Amount")
                 </label>
                 <div class="input-group">
-                    <span class="input-group-text">@currencySymbol</span>
-                    <input type="number" step="0.01" min="0.01" name="amount" class="form-control form-control-lg" placeholder="100.00" required autofocus />
+                    <span class="input-group-text bg-white text-muted">
+                        <i class="bi bi-cash-stack"></i>
+                    </span>
+                    <input type="number"
+                           step="0.01"
+                           min="0.01"
+                           name="amount"
+                           class="form-control"
+                           placeholder="0.00"
+                           required
+                           autofocus />
+                </div>
+                <div class="form-text small text-muted">
+                    @T("O montante será somado imediatamente ao valor atual da meta.", "The amount will be credited immediately to your goal.")
                 </div>
             </div>
 
-            <div class="mb-4">
-                <label class="form-label fw-semibold text-dark">
-                    @(isPt ? "Observação (Opcional)" : "Note / Description (Optional)")
-                </label>
-                <input type="text" name="note" class="form-control" placeholder="@(isPt ? "Ex: Sobra do salário, Bônus..." : "e.g. Monthly surplus, Bonus...")" />
-            </div>
-
-            <div class="d-flex justify-content-between pt-2">
-                <a asp-action="Index" class="btn btn-outline-secondary">
-                    @(isPt ? "Cancelar" : "Cancel")
+            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3 btn-sm fw-semibold">
+                    <i class="bi bi-arrow-left me-1"></i> @T("Cancelar", "Cancel")
                 </a>
-                <button type="submit" class="btn btn-emerald px-4">
-                    @(isPt ? "Confirmar Depósito" : "Confirm Deposit")
+                <button type="submit" class="btn text-white rounded-pill px-4 btn-sm fw-semibold shadow-sm" style="background-color: #10b981;">
+                    <i class="bi bi-check2-circle me-1"></i> @T("Confirmar Aporte", "Confirm Deposit")
                 </button>
             </div>
         </form>
+
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

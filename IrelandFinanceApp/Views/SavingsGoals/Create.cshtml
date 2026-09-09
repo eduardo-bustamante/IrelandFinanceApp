@@ -1,70 +1,57 @@
-﻿@using Microsoft.AspNetCore.Identity
-@inject UserManager<ApplicationUser> UserManager
-@model IrelandFinanceApp.Models.SavingsGoal
+﻿@model IrelandFinanceApp.Models.SavingsGoal
 
 @{
-    var isPt = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase);
-    ViewData["Title"] = isPt ? "Nova Meta" : "New Savings Goal";
-
-    var currentUser = await UserManager.GetUserAsync(User);
-    var currencySymbol = currentUser?.CurrencySymbol ?? "€";
+    ViewData["Title"] = "Nova Meta";
 }
 
-<div class="container py-4" style="max-width: 550px;">
-    <div class="card border-0 shadow-sm p-4 bg-white">
-        <h4 class="fw-bold text-dark mb-1">@(isPt ? "Nova Meta Financeira" : "New Savings Goal")</h4>
-        <p class="text-muted small mb-4">@(isPt ? "Defina o objetivo, valor pretendido e saldo inicial." : "Define your safety buffer or target purchase.")</p>
+<div class="container py-4" style="max-width: 600px;">
+    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+        <h4 class="fw-bold text-dark mb-1">Nova Meta Financeira</h4>
+        <p class="text-muted small mb-4">Defina o valor alvo e a data limite para o seu objetivo.</p>
 
         <form asp-action="Create" method="post">
-            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small" role="alert"></div>
+            <!-- EXIBE QUALQUER ERRO DE VALIDAÇÃO OU BANCO -->
+            <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
             <div class="mb-3">
-                <label asp-for="Title" class="form-label fw-semibold text-dark">@(isPt ? "Título da Meta" : "Goal Title")</label>
-                <input asp-for="Title" class="form-control" placeholder="@(isPt ? "Ex: Reserva de Emergência, Viagem, Depósito do Aluguel" : "e.g. Emergency Fund, Relocation Buffer")" autofocus />
-                <span asp-validation-for="Title" class="text-danger small"></span>
+                <label asp-for="Name" class="form-label small fw-semibold text-secondary">Nome da Meta</label>
+                <input asp-for="Name" class="form-control" placeholder="Ex: Reserva de Emergência, Viagem, etc." required />
+                <span asp-validation-for="Name" class="text-danger small"></span>
             </div>
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label asp-for="TargetAmount" class="form-label fw-semibold text-dark">@(isPt ? "Valor Alvo" : "Target Amount")</label>
-                    <div class="input-group">
-                        <span class="input-group-text">@currencySymbol</span>
-                        <input asp-for="TargetAmount" class="form-control" type="number" step="0.01" min="1" placeholder="5000.00" />
-                    </div>
+                    <label asp-for="TargetAmount" class="form-label small fw-semibold text-secondary">Valor Alvo</label>
+                    <input asp-for="TargetAmount" class="form-control" type="number" step="0.01" min="1" placeholder="0,00" required />
                     <span asp-validation-for="TargetAmount" class="text-danger small"></span>
                 </div>
-
                 <div class="col-md-6">
-                    <label asp-for="CurrentAmount" class="form-label fw-semibold text-dark">@(isPt ? "Saldo Inicial" : "Initial Balance")</label>
-                    <div class="input-group">
-                        <span class="input-group-text">@currencySymbol</span>
-                        <input asp-for="CurrentAmount" class="form-control" type="number" step="0.01" min="0" value="0.00" />
-                    </div>
+                    <label asp-for="CurrentAmount" class="form-label small fw-semibold text-secondary">Valor Inicial Já Guardado</label>
+                    <input asp-for="CurrentAmount" class="form-control" type="number" step="0.01" min="0" placeholder="0,00" value="0" />
                     <span asp-validation-for="CurrentAmount" class="text-danger small"></span>
                 </div>
             </div>
 
-            <div class="alert alert-light border small text-muted mb-3 py-2">
-                <i class="bi bi-info-circle me-1 text-primary"></i>
-                @(isPt 
-                    ? "Se o Saldo Inicial for maior que 0, esse valor será descontado automaticamente do seu montante mensal disponível." 
-                    : "If Initial Balance is greater than 0, it will be automatically debited from your net monthly funds.")
-            </div>
-
             <div class="mb-4">
-                <label asp-for="TargetDate" class="form-label fw-semibold text-dark">@(isPt ? "Prazo Esperado (Opcional)" : "Target Date (Optional)")</label>
-                <input asp-for="TargetDate" class="form-control" type="date" />
+                <label asp-for="TargetDate" class="form-label small fw-semibold text-secondary">Data Limite / Alvo</label>
+                <input asp-for="TargetDate" class="form-control" type="date" required />
                 <span asp-validation-for="TargetDate" class="text-danger small"></span>
             </div>
 
-            <div class="d-flex justify-content-between pt-2">
-                <a asp-action="Index" class="btn btn-outline-secondary">@(isPt ? "Cancelar" : "Cancel")</a>
-                <button type="submit" class="btn btn-emerald px-4">@(isPt ? "Salvar Meta" : "Save Goal")</button>
+            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn text-white rounded-pill px-4 fw-semibold" style="background-color: #10b981;">
+                    <i class="bi bi-check2 me-1"></i> Criar Meta
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }

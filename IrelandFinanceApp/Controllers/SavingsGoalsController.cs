@@ -1,10 +1,10 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IrelandFinanceApp.Data;
 using IrelandFinanceApp.Models;
-using IrelandFinanceApp.Models.Enums;
 
 namespace IrelandFinanceApp.Controllers;
 
@@ -12,274 +12,237 @@ namespace IrelandFinanceApp.Controllers;
 public class SavingsGoalsController : Controller
 {
     private readonly AppDbContext _context;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public SavingsGoalsController(AppDbContext context)
+    public SavingsGoalsController(AppDbContext context, UserManager<ApplicationUser> userManager)
     {
         _context = context;
+        _userManager = userManager;
     }
-
-    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     // GET: SavingsGoals
     public async Task<IActionResult> Index()
     {
+        var userId = _userManager.GetUserId(User);
+        if (string.IsNullOrEmpty(userId)) return Challenge();
+
         var goals = await _context.SavingsGoals
-            .Where(g => g.UserId == CurrentUserId)
-            .OrderBy(g => g.TargetDate)
+            .Where(s => s.UserId == userId)
+            .OrderBy(s => s.TargetDate)
             .ToListAsync();
 
         return View(goals);
     }
 
+    // GET: SavingsGoals/Details/5
+    public async Task<IActionResult> Details(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var userId = _userManager.GetUserId(User);
+        var savingsGoal = await _context.SavingsGoals
+            .Include(s => s.Transactions)
+            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
+
+        if (savingsGoal == null) return NotFound();
+
+        return View(savingsGoal);
+    }
+
     // GET: SavingsGoals/Create
     public IActionResult Create()
     {
-        return View(new SavingsGoal());
+        var model = new SavingsGoal
+        {
+            TargetDate = DateTime.Today.AddMonths(6)
+        };
+        return View(model);
     }
 
+    // POST: SavingsGoals/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(SavingsGoal goal)
+    public async Task<IActionResult> Create([Bind("Name,TargetAmount,CurrentAmount,TargetDate")] SavingsGoal savingsGoal)
     {
-        goal.UserId = CurrentUserId;
+        var userId = _userManager.GetUserId(User);
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Challenge();
+        }
 
-        ModelState.Remove(nameof(SavingsGoal.UserId));
-        ModelState.Remove(nameof(SavingsGoal.User));
-        ModelState.Remove(nameof(SavingsGoal.Contributions));
+        // Associa o Id do usuário logado
+        savingsGoal.UserId = userId;
+
+        // Remove validações de propriedades que não vêm do formulário HTML
+        ModelState.Remove(nameof(savingsGoal.UserId));
+        ModelState.Remove(nameof(savingsGoal.User));
+        ModelState.Remove(nameof(savingsGoal.Transactions));
+
+        // Se houver valor inicial não preenchido, define como 0
+        if (savingsGoal.CurrentAmount < 0)
+        {
+            savingsGoal.CurrentAmount = 0;
+        }
 
         if (ModelState.IsValid)
         {
-            // 1. Salva a meta primeiro para gerar o Id
-            _context.Add(goal);
-            await _context.SaveChangesAsync();
-
-            // 2. Se informou saldo inicial maior que 0, debita do montante criando a transação correspondente
-            if (goal.CurrentAmount > 0)
+            try
             {
-                var savingsCategory = await _context.Categories
-                    .FirstOrDefaultAsync(c => c.UserId == CurrentUserId &&
-                        (c.Name.Contains("Emergency") || c.Name.Contains("Savings") || c.Name.Contains("Reserva")));
-
-                if (savingsCategory == null)
-                {
-                    savingsCategory = new Category
-                    {
-                        Name = "Initial Goal Allocation",
-                        IsEssential = false,
-                        UserId = CurrentUserId
-                    };
-                    _context.Categories.Add(savingsCategory);
-                    await _context.SaveChangesAsync();
-                }
-
-                var initialDepositTransaction = new Transaction
-                {
-                    Amount = goal.CurrentAmount,
-                    Date = DateTime.UtcNow,
-                    Description = $"Initial Allocation: {goal.Title}",
-                    Type = TransactionType.Expense, // Debita do saldo mensal disponível
-                    CategoryId = savingsCategory.Id,
-                    SavingsGoalId = goal.Id,
-                    UserId = CurrentUserId
-                };
-
-                _context.Transactions.Add(initialDepositTransaction);
+                _context.SavingsGoals.Add(savingsGoal);
                 await _context.SaveChangesAsync();
-            }
 
-            return RedirectToAction(nameof(Index));
+                TempData["SuccessMessage"] = "Meta criada com sucesso!";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                // Captura erro de banco de dados se ocorrer
+                ModelState.AddModelError(string.Empty, $"Erro ao gravar no banco de dados: {ex.Message}");
+            }
         }
 
-        return View(goal);
+        // Se falhar a validação, este bloco ajuda a ver na tela o que travou
+        return View(savingsGoal);
     }
-    // GET: SavingsGoals/Deposit/5
+    // GET: SavingsGoals/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var userId = _userManager.GetUserId(User);
+        var savingsGoal = await _context.SavingsGoals
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+        if (savingsGoal == null) return NotFound();
+
+        return View(savingsGoal);
+    }
+
+    // POST: SavingsGoals/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Name,TargetAmount,CurrentAmount,TargetDate")] SavingsGoal savingsGoal)
+    {
+        if (id != savingsGoal.Id) return NotFound();
+
+        var userId = _userManager.GetUserId(User);
+        var existingGoal = await _context.SavingsGoals
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+        if (existingGoal == null) return NotFound();
+
+        ModelState.Remove(nameof(savingsGoal.UserId));
+        ModelState.Remove(nameof(savingsGoal.User));
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                existingGoal.Name = savingsGoal.Name;
+                existingGoal.TargetAmount = savingsGoal.TargetAmount;
+                existingGoal.CurrentAmount = savingsGoal.CurrentAmount;
+                existingGoal.TargetDate = savingsGoal.TargetDate;
+
+                _context.Update(existingGoal);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Meta atualizada com sucesso!";
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!SavingsGoalExists(savingsGoal.Id, userId!))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
+        }
+        return View(savingsGoal);
+    }
+
     // GET: SavingsGoals/Deposit/5
     public async Task<IActionResult> Deposit(int? id)
     {
         if (id == null) return NotFound();
 
+        var userId = _userManager.GetUserId(User);
         var goal = await _context.SavingsGoals
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == CurrentUserId);
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
 
         if (goal == null) return NotFound();
 
-        ViewBag.GoalTitle = goal.Title;
-        ViewBag.GoalId = goal.Id;
-
-        return View();
+        return View(goal);
     }
 
+    // POST: SavingsGoals/Deposit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Deposit(int id, decimal amount)
+    {
+        if (amount <= 0)
+        {
+            TempData["ErrorMessage"] = "Informe um valor de aporte positivo.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var userId = _userManager.GetUserId(User);
+        var goal = await _context.SavingsGoals
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
+
+        if (goal == null) return NotFound();
+
+        goal.CurrentAmount += amount;
+        _context.Update(goal);
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = $"Aporte de {amount:C} realizado com sucesso para '{goal.Name}'!";
+        return RedirectToAction(nameof(Index));
+    }
+    // GET: SavingsGoals/Delete/5
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null) return NotFound();
+
+        var userId = _userManager.GetUserId(User);
+        var savingsGoal = await _context.SavingsGoals
+            .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
+
+        if (savingsGoal == null) return NotFound();
+
+        return View(savingsGoal);
+    }
 
     // POST: SavingsGoals/Delete/5
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var goal = await _context.SavingsGoals
-            .Include(g => g.Contributions)
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == CurrentUserId);
+        var userId = _userManager.GetUserId(User);
+        var savingsGoal = await _context.SavingsGoals
+            .Include(s => s.Transactions)
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId);
 
-        if (goal != null)
+        if (savingsGoal != null)
         {
-            if (goal.Contributions.Any())
+            if (savingsGoal.Transactions != null && savingsGoal.Transactions.Any())
             {
-                TempData["Error"] = "Não é possível excluir uma meta que possui aportes registrados. Exclua as transações vinculadas primeiro.";
+                TempData["ErrorMessage"] = "Esta meta não pode ser excluída pois possui lançamentos associados.";
                 return RedirectToAction(nameof(Index));
             }
 
-            _context.SavingsGoals.Remove(goal);
+            _context.SavingsGoals.Remove(savingsGoal);
             await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Meta removida com sucesso!";
         }
 
         return RedirectToAction(nameof(Index));
     }
 
-    // POST: SavingsGoals/Deposit/5
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Deposit(int id, decimal amount, string? note)
+    private bool SavingsGoalExists(int id, string userId)
     {
-        var goal = await _context.SavingsGoals
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == CurrentUserId);
-
-        if (goal == null) return NotFound();
-
-        if (amount <= 0)
-        {
-            ModelState.AddModelError("amount", "Informe um valor maior que zero.");
-        }
-
-        if (ModelState.IsValid)
-        {
-            // 1. Garante uma categoria para o aporte (evita violação de FK se CategoryId for obrigatório)
-            var savingsCategory = await _context.Categories
-                .FirstOrDefaultAsync(c => c.UserId == CurrentUserId && (c.Name == "Poupança" || c.Name == "Savings"));
-
-            if (savingsCategory == null)
-            {
-                savingsCategory = new Category
-                {
-                    Name = "Poupança",
-                    UserId = CurrentUserId,
-                    IsEssential = false
-                };
-                _context.Categories.Add(savingsCategory);
-                await _context.SaveChangesAsync();
-            }
-
-            // 2. Atualiza o saldo acumulado da meta
-            goal.CurrentAmount += amount;
-            _context.Update(goal);
-
-            // 3. Cria o lançamento contábil de saída
-            var tx = new Transaction
-            {
-                UserId = CurrentUserId,
-                Description = string.IsNullOrWhiteSpace(note) ? $"Aporte: {goal.Title}" : note,
-                Amount = amount,
-                Date = DateTime.UtcNow,
-                Type = IrelandFinanceApp.Models.Enums.TransactionType.Expense,
-                CategoryId = savingsCategory.Id, // FK preenchida com segurança
-                SavingsGoalId = goal.Id
-            };
-
-            _context.Transactions.Add(tx);
-            await _context.SaveChangesAsync();
-
-            TempData["Success"] = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase)
-                ? "Aporte realizado com sucesso!"
-                : "Deposit completed successfully!";
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        ViewBag.GoalTitle = goal.Title;
-        ViewBag.GoalId = goal.Id;
-        return View();
-    }
-    // GET: SavingsGoals/Withdraw/5
-    public async Task<IActionResult> Withdraw(int? id)
-    {
-        if (id == null) return NotFound();
-
-        var goal = await _context.SavingsGoals
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == CurrentUserId);
-
-        if (goal == null) return NotFound();
-
-        ViewBag.GoalTitle = goal.Title;
-        ViewBag.GoalId = goal.Id;
-        ViewBag.MaxAmount = goal.CurrentAmount;
-
-        return View();
-    }
-
-    // POST: SavingsGoals/Withdraw/5
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Withdraw(int id, decimal amount, string? note)
-    {
-        var goal = await _context.SavingsGoals
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == CurrentUserId);
-
-        if (goal == null) return NotFound();
-
-        if (amount <= 0)
-        {
-            ModelState.AddModelError("amount", "Informe um valor maior que zero.");
-        }
-        else if (amount > goal.CurrentAmount)
-        {
-            ModelState.AddModelError("amount", $"O valor máximo para resgate é de {goal.CurrentAmount:N2}.");
-        }
-
-        if (ModelState.IsValid)
-        {
-            // Garante a categoria para a transação
-            var savingsCategory = await _context.Categories
-                .FirstOrDefaultAsync(c => c.UserId == CurrentUserId && (c.Name == "Poupança" || c.Name == "Savings"));
-
-            if (savingsCategory == null)
-            {
-                savingsCategory = new Category
-                {
-                    Name = "Poupança",
-                    UserId = CurrentUserId,
-                    IsEssential = false
-                };
-                _context.Categories.Add(savingsCategory);
-                await _context.SaveChangesAsync();
-            }
-
-            // Reduz o saldo da meta
-            goal.CurrentAmount -= amount;
-            _context.Update(goal);
-
-            // Cria a transação de entrada
-            var tx = new Transaction
-            {
-                UserId = CurrentUserId,
-                Description = string.IsNullOrWhiteSpace(note) ? $"Resgate: {goal.Title}" : note,
-                Amount = amount,
-                Date = DateTime.UtcNow,
-                Type = IrelandFinanceApp.Models.Enums.TransactionType.Income,
-                CategoryId = savingsCategory.Id,
-                SavingsGoalId = goal.Id
-            };
-
-            _context.Transactions.Add(tx);
-            await _context.SaveChangesAsync();
-
-            TempData["Success"] = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("pt", StringComparison.OrdinalIgnoreCase)
-                ? "Resgate efetuado com sucesso!"
-                : "Withdrawal completed successfully!";
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        ViewBag.GoalTitle = goal.Title;
-        ViewBag.GoalId = goal.Id;
-        ViewBag.MaxAmount = goal.CurrentAmount;
-        return View();
+        return _context.SavingsGoals.Any(e => e.Id == id && e.UserId == userId);
     }
 }
